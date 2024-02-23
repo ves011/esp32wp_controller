@@ -1,23 +1,35 @@
-# esp32_controller
-Generic application for an IOT device based on ESP32 controller
+# esp32wp_controller
+Irrigation controller.
+It's a rework of generic esp32_controller dedicated to a small irrigation automation. It controls a water pump and 2 tap actuators for each irrigation zone.
+
 ## Introduction
-The purpose of this application is to provide a small framework to implement different IOT controller devices.<br>
-The application provided here run on [Esspressif ESP32 module](https://www.espressif.com) and the development environment is using [ESP-IDF](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/)<br>
-It is built in Eclipse CDT 2022-09 with ESP-IDF plug-in, based on esp-idf-v4.4.3<br>
-The fwk itself is putting together several modules provided in esp-idf (there are plenty of them) and adapted them to my purpose.<br> All these modules are part of the [esp32_common]( https://github.com/ves011/esp32_common) repository.<br>
-Beside the fwk you need to implement control logic for specific sensors, or actuators, or... you need to monitor and control.
-<br><br>
-To control the application you need a MQTT boroker (in my case Mosquitto)<br>
-The fwk connects to the broker and subcribes to predefined topics:
-- [...]/ctrl -- any message recieved on this topic goes to cmds modules
-- [...]/cmd -- any message received on this topic goes to the control logic
-- [network name]/query -- used by external clients to identify which IOT devices are alive in the network<br>
-<br>
-In response to a received message send a response by publishing the result on <br>
+It follows the same approach like [esp32_controller](https://github.com/ves011/esp32_controller).<br>
+This implementation uses an old [ESP32 dev board using ESP32WROOM32](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-devkitc.html). 
+In addition, because the poor performance of internal ADC it uses an external [AD7811](https://www.analog.com/en/products/ad7811.html) connected over SPI. <br>
 
-- [...]/state - for messages received on [...]/cmd
-- [network name]/response - for messages received on [network name]/query
-- [...]/monitor topic is used by the control logic in case it has to publish unsolicited (URC) device events<br>
+## How it works
 
-[network name] is a generic name for IOT network hosting the devices<br>
-[...] is the name of each individual dvice. IT HAS TO BE UNIQUE in the network!<br>
+>**Water program operation**<br>
+>>The parameters for water program are stored in dv_program.txt file located in user partition on the ESP32 flash.
+Each irrigation interval is defined by an entry in the file and has 7 fields: <br>
+>>>**zone no, start H, start min, stop H, stop min, completion status, fault**<br>
+
+>>with H (hour) in 24H format<br>
+Completion status can be: NOT_STARTED, IN_PROGRESS, START_ERROR, or ABORTED.<br>
+Completion status is reset to NOT_STARTED once per day at RESET_PROGRAM_H:RESET_PROGRAM_M time.<br>
+
+>>In my case, because the limited water pressure provided by pump, the logic allows only single zone irrigation at given point in time.<br><br>
+When current time gets equal or higher than specified start time of some zone and completion status is NOT_STARTED, start the program by:<br>
+>>>ensure all the water taps are closed<br>
+start water pump<br>
+wait water pressure to be over max pressure limit<br>
+>>>>if water pressure too low: stop water pump, abort program and return error<br>
+
+>>>open tap for the zone<br>
+check if water pressure is between limits<br>
+>>>>if water pressure not between limits: stop water pump, close the tap, abort program and return error<br>
+
+>>>set completion status "in progress"<br>
+>>If start programs returns error, updates completion status to ABORTED or START_ERROR, else its set to IN_PROGRESS.<br>
+writes program status in "program_status.txt"
+

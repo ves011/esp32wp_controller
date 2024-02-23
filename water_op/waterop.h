@@ -72,6 +72,8 @@
 #define GET_STATE_NOT_PERMITED	15
 #define GET_STATE_ERROR			16
 #define OP_ABORTED				17
+#define PRESS2HIGH				18
+#define PRESS2LOW				19
 
 
 #define WATER_PUMP_DESC			"pump01"
