@@ -51,13 +51,14 @@
 #define COMPLETED				2
 #define ABORTED					3
 #define START_ERROR				4
-#define INVALID					5  // if start time is after stop time
+#define STOP_ERROR				5
+#define INVALID					6  // if start time is after stop time
 
 #define RETRY_OP_WATERING		5
-#define NO_PUMP_RESPONSE		6
+//#define NO_PUMP_RESPONSE		6
 #define PUMP_WRONG_STATE		7
-#define DV_ERROR				8
-#define PUMP_PRESSURE_LOW		9
+//#define DV_ERROR				8
+//#define PUMP_PRESSURE_LOW		9
 #define START_WATERING_ERROR	10
 #define STOP_WATERING_ERROR		11
 

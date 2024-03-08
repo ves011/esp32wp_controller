@@ -39,8 +39,7 @@
 
 #if ACTIVE_CONTROLLER == WATER_CONTROLLER || ACTIVE_CONTROLLER == WP_CONTROLLER
 
-extern int pump_pressure_kpa;
-int pump_state, pump_status, pump_current, kpa0_offset, pump_min_lim, pump_max_lim, pump_current_limit;
+extern int pump_max_lim, pump_pressure_kpa;
 
 static struct {
     struct arg_str *op;
@@ -257,29 +256,44 @@ static void config_dv_gpio(void)
 	gpio_config_t io_conf;
 	io_conf.intr_type = GPIO_INTR_DISABLE;
 	io_conf.mode = GPIO_MODE_OUTPUT;
-    io_conf.pin_bit_mask = (1ULL << PINMOT_A1) | (1ULL << PINMOT_B1) | (1ULL << PINEN_DV0) | (1ULL << PINEN_DV1) | (1ULL << DV0_ON_LED)  | (1ULL << DV1_ON_LED);
+    io_conf.pin_bit_mask = 	(1ULL << PINMOT_A1) | (1ULL << PINMOT_B1) | (1ULL << PINEN_DV0) | (1ULL << PINEN_DV1) |
+    						(1ULL << DV0_ON_LED)  | (1ULL << DV1_ON_LED) | (1ULL << PROG_ON_LED);
     io_conf.pull_down_en = 0;
     io_conf.pull_up_en = 0;
     gpio_config(&io_conf);
 
+    /*
 	io_conf.mode = GPIO_MODE_INPUT;
 	io_conf.intr_type = GPIO_INTR_ANYEDGE;
-    io_conf.pin_bit_mask = (1ULL << DV0_CMD) | (1ULL << DV1_CMD);
+    io_conf.pin_bit_mask = (1ULL << DV0_CMD) | (1ULL << DV1_CMD) | (1ULL << WATER_STOP_CMD);
     io_conf.pull_down_en = 1;
     io_conf.pull_up_en = 0;
     gpio_config(&io_conf);
 
     gpio_isr_handler_add(DV0_CMD, gpio_isr_handler, (void*) DV0_CMD);
     gpio_isr_handler_add(DV1_CMD, gpio_isr_handler, (void*) DV1_CMD);
-
+    gpio_isr_handler_add(DV1_CMD, gpio_isr_handler, (void*) WATER_STOP_CMD);
+*/
     gpio_set_level(PINEN_DV0, PIN_OFF);
     gpio_set_level(PINEN_DV1, PIN_OFF);
     gpio_set_level(PINMOT_A1, PIN_OFF);
     gpio_set_level(PINMOT_B1, PIN_OFF);
     gpio_set_level(DV0_ON_LED, PIN_OFF);
     gpio_set_level(DV1_ON_LED, PIN_OFF);
+    gpio_set_level(PROG_ON_LED, PIN_OFF);
 	}
-
+/*
+ * stop ongoing program, if any
+ */
+static void stop_program()
+	{
+	for(int i = 0; i < DVCOUNT; i++)
+		{
+		if(dv_program.p[i].cs == IN_PROGRESS)
+			stop_watering(i, ABORTED);
+		}
+	gpio_set_level(PROG_ON_LED, PIN_OFF);
+	}
 int do_dvop(int argc, char **argv)
 	{
 	dvprogram_t pval;
@@ -339,8 +353,8 @@ int do_dvop(int argc, char **argv)
 		    			dv_program.p[i].startm, dv_program.p[i].stoph, dv_program.p[i].stopm,
 						dv_program.p[i].cs, dv_program.p[i].fault);
 		    }
-		sprintf(buf, "%d\1%d\1%d\1", pump_status, pump_state, pump_pressure_kpa);
-		strcat(mqttbuf, buf);
+		//sprintf(buf, "%d\1%d\1%d\1", pump_status, pump_state, pump_pressure_kpa);
+		//strcat(mqttbuf, buf);
 		publish_state(mqttbuf, 1, 0);
     	}
     else if(strcmp(waterop_args.op->sval[0], "resetps") == 0)
@@ -431,6 +445,8 @@ int do_dvop(int argc, char **argv)
     	}
     else if(strcmp(waterop_args.op->sval[0], "readps") == 0)
     	read_program_status();
+    else if(strcmp(waterop_args.op->sval[0], "stop") == 0)
+    	stop_program();
     else
     	ESP_LOGI(TAG, "Invalid op: %s", waterop_args.op->sval[0]);
     return 0;
@@ -456,6 +472,8 @@ void water_mon_task(void *pvParameters)
 						dv_program.p[i].cs == NOT_STARTED)
 					{
 					ret = start_watering(i);
+					if(ret != ESP_OK)
+						ESP_LOGI(TAG, "Watering program for DV%d could not be started", dv_program.p[i].dv);
 					sprintf(mqttbuf, "%s\1%d\1%d\1%d\1", WATERING_STATE, dv_program.p[i].dv, dv_program.p[i].cs, dv_program.p[i].fault);
 					publish_monitor(mqttbuf, 1, 0);
 					}
@@ -463,16 +481,10 @@ void water_mon_task(void *pvParameters)
 						dv_program.p[i].cs == IN_PROGRESS)
 					{
 					ret = stop_watering(i, COMPLETED);
-					if(ret != 0)
-						{
+					if(ret != ESP_OK)
 						ESP_LOGI(TAG, "Watering program for DV%d could not be stopped", dv_program.p[i].dv);
-						dv_program.p[i].cs = ABORTED;
-						dv_program.p[i].fault = ret;
-						write_program(&dv_program);
-						write_status(i);
-						sprintf(mqttbuf, "%s\1%d\1%d\1%d\1", ERR_STOP, dv_program.p[i].dv, dv_program.p[i].cs, dv_program.p[i].fault);
-						publish_monitor(mqttbuf, 1, 0);
-						}
+					sprintf(mqttbuf, "%s\1%d\1%d\1%d\1", WATERING_STATE, dv_program.p[i].dv, dv_program.p[i].cs, dv_program.p[i].fault);
+					publish_monitor(mqttbuf, 1, 0);
 					}
 				}
 			}
@@ -485,9 +497,11 @@ void water_mon_task(void *pvParameters)
 			read_program(&dv_program);
 			for(i = 0; i < DVCOUNT; i++)
 				dv_program.p[i].cs = NOT_STARTED;
-			write_program(&dv_program);
-			reset_done = 1;
-			ESP_LOGI(TAG, "Watering program status reset");
+			if(write_program(&dv_program) == ESP_OK)
+				{
+				reset_done = 1;
+				ESP_LOGI(TAG, "Watering program status reset");
+				}
 			}
 		if(watering_status == WATER_OFF)
 			{
@@ -513,7 +527,7 @@ void water_mon_task(void *pvParameters)
 			}
 		else
 			{
-			vTaskDelay(1000 / portTICK_PERIOD_MS);
+
 			if(saved_status != watering_status ||
 					savedDV != activeDV)
 				{
@@ -532,6 +546,7 @@ void water_mon_task(void *pvParameters)
 				saved_status = watering_status;
 				savedDV = activeDV;
 				}
+			vTaskDelay(1000 / portTICK_PERIOD_MS);
 			}
 		}
 	}
@@ -581,6 +596,7 @@ static void water_cmd_task(void* arg)
 		{
         if(xQueueReceive(dv_cmd_queue, &msg, portMAX_DELAY))
         	{
+        	/*
         	if(msg.source == DV0_CMD || msg.source == DV1_CMD)
         		{
         		i = gpio_get_level(msg.source);
@@ -613,7 +629,10 @@ static void water_cmd_task(void* arg)
 					else
 						open_dv(1);
 					}
+				if(gpio_get_level(WATER_STOP_CMD) == 0)
+					stop_program();
         		}
+        		*/
         	}
 		}
 	}
@@ -888,20 +907,22 @@ static int stop_watering(int idx, int reason)
 	if(dv_program.p[idx].cs == IN_PROGRESS)
 		{
 		ESP_LOGI(TAG, "Stop watering");
-		close_dv(dv_program.p[idx].dv);
-		vTaskDelay(1000 / portTICK_PERIOD_MS); //wait 1 sec to check pressure status
-		if(pump_pressure_kpa >= pump_min_lim) // dv closed successfully
+		ret = close_dv(dv_program.p[idx].dv);
+		if(ret == ESP_OK)
 			{
-			ESP_LOGI(TAG, "close1 dv ok");
-			ret = ESP_OK;
+			dv_program.p[idx].cs = reason;
+			dv_program.p[idx].fault = 0;
 			}
 		else
 			{
-			ESP_LOGI(TAG, "DV%d not closed. Pump pressure still low", dv_program.p[idx].dv);
-			ret = DV_CLOSE_FAIL;
+			dv_program.p[idx].cs = STOP_ERROR;
+			dv_program.p[idx].fault = ret;
 			}
 		}
 	pump_operational(PUMP_OFFLINE);
+	watering_status = WATER_OFF;
+	write_program(&dv_program);
+	write_status(idx);
 	return ret;
 	}
 #endif

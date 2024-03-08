@@ -39,6 +39,7 @@
 #include "ntp_sync.h"
 #include "esp_ota_ops.h"
 #include "hal/adc_types.h"
+#include "rot_enc.h"
 #include "gpios.h"
 //#include "adc_op.h"
 #include "ad7811.h"
@@ -108,7 +109,6 @@ void app_main(void)
 	ESP_LOGI(TAG, "app main");
 #if ACTIVE_CONTROLLER == PUMP_CONTROLLER ||	ACTIVE_CONTROLLER == WP_CONTROLLER
 	int bp_ctrl = PUMP_ONLINE_CMD;
-	register_ad();
 	gpio_install_isr_service(0);
 #elif ACTIVE_CONTROLLER == AGATE_CONTROLLER
 	int bp_ctrl = 6; //IO6 on J5 pin 8
@@ -153,8 +153,6 @@ void app_main(void)
     		}
     	}
 	gpio_reset_pin(bp_ctrl);
-
-	ESP_LOGI(TAG, "app main 2");
 	restart_in_progress = 0;
 	console_state = CONSOLE_OFF;
 	setenv("TZ","EET-2EEST,M3.4.0/03,M10.4.0/04",1);
@@ -164,12 +162,14 @@ void app_main(void)
 	initialize_nvs();
 	controller_op_registered = 0;
 	rw_params(PARAM_READ, PARAM_CONSOLE, &console_state);
+	init_rotenc();
 	tsync = 0;
 	wifi_join(DEFAULT_SSID, DEFAULT_PASS, JOIN_TIMEOUT_MS);
 	esp_wifi_set_ps(WIFI_PS_MAX_MODEM);
 	tcp_log_init();
 	esp_log_set_vprintf(my_log_vprintf);
 
+	// start task to sync local time with NTP server
 	xTaskCreate(ntp_sync, "NTP_sync_task", 6134, NULL, USER_TASK_PRIORITY, &ntp_sync_task_handle);
 
 	if(mqtt_start() == ESP_OK)
@@ -193,8 +193,6 @@ void app_main(void)
 #endif
 #endif
 
-	// start task to sync local time with NTP server
-
 	/* Register commands */
 	esp_console_register_help_command();
 	register_system();
@@ -206,6 +204,7 @@ void app_main(void)
 	register_gateop();
 #endif
 #if ACTIVE_CONTROLLER == PUMP_CONTROLLER || ACTIVE_CONTROLLER == WP_CONTROLLER
+	register_ad();
 	register_pumpop();
 #endif
 #if ACTIVE_CONTROLLER == WESTA_CONTROLLER

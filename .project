@@ -3543,6 +3543,11 @@
 			<location>C:/dev/esp32/esp32_common/utils/ota.c</location>
 		</link>
 		<link>
+			<name>build/ide/esp_idf_components/dev/esp32/esp32_common/utils/rot_enc.c</name>
+			<type>1</type>
+			<location>C:/dev/esp32/esp32_common/utils/rot_enc.c</location>
+		</link>
+		<link>
 			<name>build/ide/esp_idf_components/dev/esp32/esp32_common/utils/utils.c</name>
 			<type>1</type>
 			<location>C:/dev/esp32/esp32_common/utils/utils.c</location>
