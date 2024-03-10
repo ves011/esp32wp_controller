@@ -266,12 +266,9 @@ static void config_cmd_timer()
 static void config_pump_gpio(void)
 	{
 	gpio_config_t io_conf;
-	/*
-	 * output GPIOs
-	 */
 	io_conf.intr_type = GPIO_INTR_DISABLE;
 	io_conf.mode = GPIO_MODE_OUTPUT;
-    io_conf.pin_bit_mask = (1ULL << PUMP_ONOFF_PIN | 1ULL << PUMP_ONOFF_LED | 1ULL << PUMP_ONLINE_LED | 1ULL << PUMP_FAULT_LED);
+    io_conf.pin_bit_mask = (1ULL << PUMP_ONOFF_PIN);
     io_conf.pull_down_en = 0;
     io_conf.pull_up_en = 0;
     /*
@@ -281,10 +278,22 @@ static void config_pump_gpio(void)
      */
     gpio_set_drive_capability(PUMP_ONOFF_PIN, GPIO_DRIVE_CAP_0);
     gpio_config(&io_conf);
+    gpio_set_level(PUMP_ONOFF_PIN, PIN_OFF);
+#ifdef LEDS
+	/*
+	 * output GPIOs
+	 */
+	io_conf.intr_type = GPIO_INTR_DISABLE;
+	io_conf.mode = GPIO_MODE_OUTPUT;
+    io_conf.pin_bit_mask = (1ULL << PUMP_ONOFF_LED | 1ULL << PUMP_ONLINE_LED | 1ULL << PUMP_FAULT_LED);
+    io_conf.pull_down_en = 0;
+    io_conf.pull_up_en = 0;
+
+    gpio_config(&io_conf);
     gpio_set_level(PUMP_ONOFF_LED, PIN_OFF);
     gpio_set_level(PUMP_ONLINE_LED, PIN_OFF);
     gpio_set_level(PUMP_FAULT_LED, PIN_OFF);
-    gpio_set_level(PUMP_ONOFF_PIN, PIN_OFF);
+
 
     /*
      * input GPIO
@@ -298,6 +307,7 @@ static void config_pump_gpio(void)
 
     //gpio_install_isr_service(0);
     gpio_isr_handler_add(PUMP_ONLINE_CMD, pump_onoff_isr_handler, (void*) PUMP_ONLINE_CMD);
+#endif
 	}
 
 int get_pump_state(void)
@@ -356,12 +366,16 @@ int get_pump_state(void)
 	if(pump_status == PUMP_ONLINE)
 		{
 		strcpy(opstate, "ONLINE");
+#ifdef LEDS
 		gpio_set_level(PUMP_ONLINE_LED, PIN_ON);
+#endif
 		}
 	else if(pump_status == PUMP_OFFLINE)
 		{
 		strcpy(opstate, "OFFLINE");
+#ifdef LEDS
 		gpio_set_level(PUMP_ONLINE_LED, PIN_OFF);
+#endif
 		}
 	else
 		strcpy(opstate, "UNKNOWN");
@@ -406,8 +420,10 @@ int start_pump(int from)
 			if(pump_current > PUMP_CURRENT_OFF && pump_current <= pump_current_limit)
 				{
 				pump_pressure_kpa = ((psensor_mv - kpa0_offset) * 250) / 1000;
+#ifdef LEDS
 				gpio_set_level(PUMP_ONOFF_LED, PIN_ON);
 				gpio_set_level(PUMP_FAULT_LED, PIN_OFF);
+#endif
 				pump_state = PUMP_ON;
 				ESP_LOGI(TAG, "Pump ON   start %d", pump_pressure_kpa);
 				}
@@ -415,9 +431,11 @@ int start_pump(int from)
 				{
 				ESP_LOGI(TAG, "Pump overcurrent %d / %d", pump_current, pump_current_limit);
 				gpio_set_level(PUMP_ONOFF_PIN, PUMP_OFF);
+#ifdef LEDS
 				gpio_set_level(PUMP_ONOFF_LED, PIN_OFF);
 				gpio_set_level(PUMP_FAULT_LED, PIN_ON);
 				gpio_set_level(PUMP_ONLINE_LED, PIN_OFF);
+#endif
 				pump_state = PUMP_FAULT;
 				pump_status = PUMP_OFFLINE;
 				//if(pump_task_handle)
@@ -431,8 +449,10 @@ int start_pump(int from)
 				{
 				ESP_LOGI(TAG, "Pump doesn't start");
 				gpio_set_level(PUMP_ONOFF_PIN, PUMP_OFF);
+#ifdef LEDS
 				gpio_set_level(PUMP_ONOFF_LED, PIN_OFF);
 				gpio_set_level(PUMP_FAULT_LED, PIN_ON);
+#endif
 				pump_state = PUMP_FAULT;
 				ret = ESP_OK;
 				}
@@ -465,14 +485,18 @@ int stop_pump(int from)
 			if(pump_current < PUMP_CURRENT_OFF)
 				{
 				pump_state = PUMP_OFF;
+#ifdef LEDS
 				gpio_set_level(PUMP_ONOFF_LED, PIN_OFF);
+#endif
 				ESP_LOGI(TAG, "Pump OFF  stop %d", pump_pressure_kpa);
 				}
 			else
 				{
 				ESP_LOGI(TAG, "Pump doesn't stop");
 				pump_state = PUMP_ON;
+#ifdef LEDS
 				gpio_set_level(PUMP_ONOFF_LED, PIN_ON);
+#endif
 				ret = ESP_FAIL;
 				}
 			}
@@ -496,7 +520,9 @@ int pump_operational(int po)
 				{
 				pump_status = po;
 				stop_pump(1);
+#ifdef LEDS
 				gpio_set_level(PUMP_ONLINE_LED, PIN_OFF);
+#endif
 				}
 			else if(po == PUMP_ONLINE)
 				{
@@ -504,11 +530,15 @@ int pump_operational(int po)
 				if(pump_state == PUMP_ON)
 					{
 					pump_status = po;
+#ifdef LEDS
 					gpio_set_level(PUMP_ONLINE_LED, PIN_ON);
+#endif
 					}
 				else
 					{
+#ifdef LEDS
 					gpio_set_level(PUMP_ONLINE_LED, PIN_OFF);
+#endif
 					ret = ESP_FAIL;
 					}
 				}
@@ -730,11 +760,15 @@ void pump_mon_task(void *pvParameters)
 				pump_pressure_kpa = 0;
 			if(pump_current > pump_current_limit) // error case --> stop the pump
 				{
+#ifdef LEDS
 				gpio_set_level(PUMP_FAULT_LED, PIN_ON);
+#endif
 				pump_status = PUMP_FAULT;
 				if(stop_pump(1) == ESP_OK)
 					{
+#ifdef LEDS
 					gpio_set_level(PUMP_ONLINE_LED, PIN_OFF);
+#endif
 					pump_state = PUMP_OFF;
 					int local_ps = pump_status;
 					rw_params(PARAM_WRITE, PARAM_OPERATIONAL, &local_ps);
@@ -742,15 +776,21 @@ void pump_mon_task(void *pvParameters)
 				}
 			else
 				{
+#ifdef LEDS
 				gpio_set_level(PUMP_FAULT_LED, PIN_OFF);
+#endif
 				if(pump_current > PUMP_CURRENT_OFF)
 					{
+#ifdef LEDS
 					gpio_set_level(PUMP_ONOFF_LED, PIN_ON);
+#endif
 					pump_state = PUMP_ON;
 					}
 				else
 					{
+#ifdef LEDS
 					gpio_set_level(PUMP_ONOFF_LED, PIN_OFF);
+#endif
 					if(pump_state != PUMP_FAULT)
 						pump_state = PUMP_OFF;
 					}
@@ -779,7 +819,9 @@ void pump_mon_task(void *pvParameters)
 											ESP_LOGI(TAG, "void run overflow %lu, pump set to offline mode", void_run);
 											void_run = 0;
 											pump_status = PUMP_OFFLINE;
+#ifdef LEDS
 											gpio_set_level(PUMP_ONLINE_LED, PIN_OFF);
+#endif
 											int local_ps = pump_status;
 											int ret = rw_params(PARAM_WRITE, PARAM_OPERATIONAL, &local_ps);
 											if(ret != ESP_OK)
