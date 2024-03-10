@@ -11,6 +11,8 @@ SRCS 					"main.c"
 						"../../esp32_common/comm/spicom.c"
 						"../../esp32_common/ad7811/ad7811.c"
 						"../lcd/lcd.c"
+						"../lcd/seg_black_10.c"
+						"../lcd/seg_black_14.c"
 						"../pump_op/pumpop.c"
 						"../water_op/waterop.c"
 

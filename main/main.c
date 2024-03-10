@@ -39,12 +39,14 @@
 #include "ntp_sync.h"
 #include "esp_ota_ops.h"
 #include "hal/adc_types.h"
+#include "lvgl.h"
 #include "rot_enc.h"
 #include "gpios.h"
 //#include "adc_op.h"
 #include "ad7811.h"
 #include "pumpop.h"
 #include "waterop.h"
+#include "lcd.h"
 
 //#include "driver/adc.h"
 //#include "esp_adc_cal.h"
@@ -107,9 +109,26 @@ static void initialize_nvs(void)
 void app_main(void)
 	{
 	ESP_LOGI(TAG, "app main");
+	gpio_install_isr_service(0);
+	/*
+	register_system();
+	init_rotenc();
+	lcd_init();
+	int argc = 1;
+	char *argv[2];
+	argv[0] = calloc(20, sizeof(uint8_t));
+	strcpy(argv[0], "tasks");
+	do_system_cmd(argc, argv);
+	strcpy(argv[0], "free");
+	do_system_cmd(argc, argv);
+	strcpy(argv[0], "heap");
+	do_system_cmd(argc, argv);
+
+	goto exit;
+	*/
 #if ACTIVE_CONTROLLER == PUMP_CONTROLLER ||	ACTIVE_CONTROLLER == WP_CONTROLLER
 	int bp_ctrl = PUMP_ONLINE_CMD;
-	gpio_install_isr_service(0);
+
 #elif ACTIVE_CONTROLLER == AGATE_CONTROLLER
 	int bp_ctrl = 6; //IO6 on J5 pin 8
 #elif ACTIVE_CONTROLLER == WESTA_CONTROLLER
@@ -174,6 +193,7 @@ void app_main(void)
 
 	if(mqtt_start() == ESP_OK)
 		register_mqtt();
+
 #ifdef WITH_CONSOLE
 	esp_console_repl_t *repl = NULL;
     esp_console_repl_config_t repl_config = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
@@ -236,4 +256,5 @@ void app_main(void)
 
 	ESP_ERROR_CHECK(esp_console_start_repl(repl));
 #endif
+	lcd_init();
 	}
