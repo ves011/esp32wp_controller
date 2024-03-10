@@ -180,10 +180,12 @@ static int open_dv(int dvnum)
 			ESP_LOGI(TAG, "open DV%d OK %d %d", dvnum, i, dv_current);
 			activeDV =  dvconfig[dvnum].dvno;
 			dvconfig[dvnum].state = DVOPEN;
+#ifdef LEDS
 			if(dvnum == 0)
 				gpio_set_level(DV0_ON_LED, PIN_ON);
 			else if(dvnum == 1)
 				gpio_set_level(DV1_ON_LED, PIN_ON);
+#endif
 			}
 		}
 	else
@@ -241,10 +243,12 @@ static int close_dv(int dvnum)
 			ESP_LOGI(TAG, "close DV%d OK %d %d", dvnum, i, dv_current);
 			activeDV =  -1;
 			dvconfig[dvnum].state = DVCLOSE;
+#ifdef LEDS
 			if(dvnum == 0)
 				gpio_set_level(DV0_ON_LED, PIN_OFF);
 			else if(dvnum == 1)
 				gpio_set_level(DV1_ON_LED, PIN_OFF);
+#endif
 			}
 		}
 	else
@@ -256,8 +260,10 @@ static void config_dv_gpio(void)
 	gpio_config_t io_conf;
 	io_conf.intr_type = GPIO_INTR_DISABLE;
 	io_conf.mode = GPIO_MODE_OUTPUT;
-    io_conf.pin_bit_mask = 	(1ULL << PINMOT_A1) | (1ULL << PINMOT_B1) | (1ULL << PINEN_DV0) | (1ULL << PINEN_DV1) |
-    						(1ULL << DV0_ON_LED)  | (1ULL << DV1_ON_LED) | (1ULL << PROG_ON_LED);
+    io_conf.pin_bit_mask = 	(1ULL << PINMOT_A1) | (1ULL << PINMOT_B1) | (1ULL << PINEN_DV0) | (1ULL << PINEN_DV1);
+#ifdef LEDS
+    io_conf.pin_bit_mask |=	(1ULL << DV0_ON_LED)  | (1ULL << DV1_ON_LED) | (1ULL << PROG_ON_LED);
+#endif
     io_conf.pull_down_en = 0;
     io_conf.pull_up_en = 0;
     gpio_config(&io_conf);
@@ -278,9 +284,11 @@ static void config_dv_gpio(void)
     gpio_set_level(PINEN_DV1, PIN_OFF);
     gpio_set_level(PINMOT_A1, PIN_OFF);
     gpio_set_level(PINMOT_B1, PIN_OFF);
+#ifdef LEDS
     gpio_set_level(DV0_ON_LED, PIN_OFF);
     gpio_set_level(DV1_ON_LED, PIN_OFF);
     gpio_set_level(PROG_ON_LED, PIN_OFF);
+#endif
 	}
 /*
  * stop ongoing program, if any
@@ -292,7 +300,9 @@ static void stop_program()
 		if(dv_program.p[i].cs == IN_PROGRESS)
 			stop_watering(i, ABORTED);
 		}
+#ifdef LEDS
 	gpio_set_level(PROG_ON_LED, PIN_OFF);
+#endif
 	}
 int do_dvop(int argc, char **argv)
 	{
