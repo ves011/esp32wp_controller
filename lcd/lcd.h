@@ -35,6 +35,20 @@
 // Using SPI2 in the example
 #define LCD_HOST  SPI2_HOST
 
+//input source
+#define K_ROT		10
+#define K_ROT_LEFT	11
+#define K_ROT_RIGHT	12
+#define K_PRESS		20
+
+typedef struct
+    {
+    lv_obj_t *btn;
+    uint32_t state;
+    }btn_main_t;
+
+void lcd_init(void);
+//void ui_cmd_task();
 
 
 #endif /* LCD_LCD_H_ */
