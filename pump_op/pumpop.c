@@ -695,7 +695,7 @@ void register_pumpop()
 	{
 	pump_cmd_queue = xQueueCreate(10, sizeof(msg_t));
 	config_pump_gpio();
-	config_cmd_timer();
+	//config_cmd_timer();
 
 	testModeCurrent = 0;
 
