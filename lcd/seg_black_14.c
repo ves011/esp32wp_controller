@@ -7,14 +7,14 @@
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE
 #include "lvgl.h"
 #else
-#include "lvgl/lvgl.h"
+#include "lvgl.h"
 #endif
 
-#ifndef SEGOE_BLACK_14
-#define SEGOE_BLACK_14 1
+#ifndef SEG_BLACK_14
+#define SEG_BLACK_14 1
 #endif
 
-#if SEGOE_BLACK_14
+#if SEG_BLACK_14
 
 /*-----------------
  *    BITMAPS
@@ -630,9 +630,9 @@ static lv_font_fmt_txt_dsc_t font_dsc = {
 
 /*Initialize a public general font descriptor*/
 #if LVGL_VERSION_MAJOR >= 8
-const lv_font_t segoe_black_14 = {
+const lv_font_t seg_black_14 = {
 #else
-lv_font_t segoe_black_14 = {
+lv_font_t seg_black_14 = {
 #endif
     .get_glyph_dsc = lv_font_get_glyph_dsc_fmt_txt,    /*Function pointer to get glyph's data*/
     .get_glyph_bitmap = lv_font_get_bitmap_fmt_txt,    /*Function pointer to get glyph's bitmap*/
@@ -652,5 +652,5 @@ lv_font_t segoe_black_14 = {
 
 
 
-#endif /*#if SEGOE_BLACK_14*/
+#endif /*#if SEG_BLACK_14*/
 
