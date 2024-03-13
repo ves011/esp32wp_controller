@@ -106,6 +106,7 @@ int set_pump_0_offset(void);
 int pump_operational(int po);
 void pump_mon_task(void *pvParameters);
 void process_adc_current(minmax_t *min, minmax_t *max);
+void get_pump_values(int *p_state, int *p_status, int *p_current, int *p_current_lim, int *p_min_pres, int *p_max_pres, int *p_press);
 
 
 #endif /* PUMP_OP_PUMPOP_H_ */

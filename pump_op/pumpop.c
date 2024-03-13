@@ -400,6 +400,16 @@ short run count          = %5d\n",
     return ret;
     }
 
+void get_pump_values(int *p_state, int *p_status, int *p_current, int *p_current_lim, int *p_min_pres, int *p_max_pres, int *p_press)
+	{
+	*p_state = pump_state;
+	*p_status = pump_status;
+	*p_current = pump_current;
+	*p_current_lim = pump_current_limit;
+	*p_min_pres = pump_min_lim;
+	*p_max_pres = pump_max_lim;
+	*p_press = pump_pressure_kpa;
+	}
 int start_pump(int from)
 	{
 	esp_err_t ret = ESP_OK;

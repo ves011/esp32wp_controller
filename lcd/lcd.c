@@ -30,7 +30,7 @@
 
 lv_style_t btn_norm, btn_sel;
 QueueHandle_t ui_cmd_q;
-SemaphoreHandle_t lvgl_mutex;
+
 int lv_timer_stop;
 static uint32_t active_screen;
 static lv_disp_t *disp;
@@ -134,12 +134,7 @@ static void lvgl_task(void *pvParameters)
 		 vTaskDelay(pdMS_TO_TICKS(20));
 		 //usleep(5000);
 		 // The task running lv_timer_handler should have lower priority than that running `lv_tick_inc`
-		 if(xSemaphoreTake(lvgl_mutex, ( TickType_t ) 100 )) // 1 sec wait
-			 {
-			 if(!lv_timer_stop)
-				 lv_timer_handler();
-			 xSemaphoreGive(lvgl_mutex);
-			 }
+		 lv_timer_handler();
 		 }
 	}
 
@@ -262,7 +257,6 @@ void lcd_init(void)
     lv_style_transition_dsc_init(&trans, props, lv_anim_path_linear, 300, 0, NULL);
     lv_style_set_transition(&btn_sel, &trans);
 
-
     ESP_LOGI(TAG, "Install LVGL tick timer");
     // Tick interface for LVGL (using esp_timer to generate 2ms periodic event)
     const esp_timer_create_args_t lvgl_tick_timer_args = {
@@ -275,12 +269,6 @@ void lcd_init(void)
 
     lv_disp_set_rotation(disp, LV_DISP_ROT_270);
     lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x0), LV_PART_MAIN);
-    lvgl_mutex = xSemaphoreCreateMutex();
-	if(!lvgl_mutex)
-		{
-		ESP_LOGE(TAG, "cannot create lvgl_mutex");
-		esp_restart();
-		}
 
     ui_cmd_q = xQueueCreate(10, sizeof(msg_t));
 	if(!ui_cmd_q)
