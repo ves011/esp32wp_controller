@@ -679,7 +679,7 @@ void register_waterop()
     subscribe(WATER_PUMP_DESC"/monitor");
 	subscribe(WATER_PUMP_DESC"/state");
     read_program(&dv_program);
-	xTaskCreate(water_mon_task, "pump task", 8192, NULL, 5, &water_task_handle);
+	xTaskCreate(water_mon_task, "wmon_task", 8192, NULL, 5, &water_task_handle);
 	if(!water_task_handle)
 		{
 		ESP_LOGE(TAG, "Unable to start watering monitor task");

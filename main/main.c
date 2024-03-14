@@ -181,6 +181,7 @@ void app_main(void)
 	initialize_nvs();
 	controller_op_registered = 0;
 	rw_params(PARAM_READ, PARAM_CONSOLE, &console_state);
+	lcd_init();
 	init_rotenc();
 	tsync = 0;
 	wifi_join(DEFAULT_SSID, DEFAULT_PASS, JOIN_TIMEOUT_MS);
@@ -256,5 +257,5 @@ void app_main(void)
 
 	ESP_ERROR_CHECK(esp_console_start_repl(repl));
 #endif
-	lcd_init();
+
 	}

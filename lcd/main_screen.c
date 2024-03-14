@@ -18,14 +18,17 @@
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
 #include "esp_err.h"
+#include "esp_netif.h"
+#include "esp_spiffs.h"
+#include "mqtt_client.h"
 #include "esp_lcd_ili9341.h"
 #include <time.h>
 #include <sys/time.h>
+#include "external_defs.h"
 #include "common_defines.h"
 #include "lvgl.h"
 #include "lcd.h"
 
-extern QueueHandle_t ui_cmd_q;
 extern lv_style_t btn_norm, btn_sel;
 
 static btn_main_t btns[2];

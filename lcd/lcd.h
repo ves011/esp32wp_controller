@@ -35,13 +35,6 @@
 // Using SPI2 in the example
 #define LCD_HOST  SPI2_HOST
 
-//input source
-#define K_ROT		10
-#define K_ROT_LEFT	11
-#define K_ROT_RIGHT	12
-#define K_PRESS		20
-#define INACT_TIME	30
-
 #define MAIN_SCREEN		1
 #define PUMP_SCREEN		2
 #define WATER_SCREEN	3
