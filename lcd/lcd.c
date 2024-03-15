@@ -32,7 +32,7 @@
 #include "pump_screen.h"
 #include "lcd.h"
 
-lv_style_t btn_norm, btn_sel;
+lv_style_t btn_norm, btn_sel, btn_press;
 QueueHandle_t ui_cmd_q;
 
 int lv_timer_stop;
@@ -261,6 +261,28 @@ void lcd_init(void)
     lv_style_transition_dsc_init(&trans, props, lv_anim_path_linear, 300, 0, NULL);
     lv_style_set_transition(&btn_sel, &trans);
 
+    lv_style_transition_dsc_init(&trans, props, lv_anim_path_linear, 300, 0, NULL);
+    lv_style_set_transition(&btn_sel, &trans);
+
+    /*Init the pressed style*/
+    lv_style_init(&btn_press);
+
+    /*Add a large outline when pressed*/
+    lv_style_set_outline_width(&btn_press, 30);
+    lv_style_set_outline_opa(&btn_press, LV_OPA_TRANSP);
+
+    lv_style_set_translate_y(&btn_press, 5);
+    lv_style_set_shadow_ofs_y(&btn_press, 3);
+    lv_style_set_bg_color(&btn_press, lv_palette_darken(LV_PALETTE_BLUE, 2));
+    lv_style_set_bg_grad_color(&btn_press, lv_palette_darken(LV_PALETTE_BLUE, 4));
+
+    /*Add a transition to the outline*/
+    static lv_style_transition_dsc_t transp;
+    static lv_style_prop_t propsp[] = { LV_STYLE_OUTLINE_WIDTH, LV_STYLE_OUTLINE_OPA, 0 };
+    lv_style_transition_dsc_init(&transp, propsp, lv_anim_path_linear, 300, 0, NULL);
+
+    lv_style_set_transition(&btn_press, &trans);
+
     ESP_LOGI(TAG, "Install LVGL tick timer");
     // Tick interface for LVGL (using esp_timer to generate 2ms periodic event)
     const esp_timer_create_args_t lvgl_tick_timer_args = {
@@ -285,7 +307,7 @@ void lcd_init(void)
 
     config_inactivity_timer();
 
-    xTaskCreatePinnedToCore(lvgl_task, "lvgl_task", 8192, NULL, 5, &lvgl_task_handle, 1);
+    xTaskCreatePinnedToCore(lvgl_task, "lvgl_task", 8192, NULL, 10, &lvgl_task_handle, 1);
 	if(!lvgl_task_handle)
 		{
 		ESP_LOGE(TAG, "Unable to start lvgl task");
