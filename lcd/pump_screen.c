@@ -33,7 +33,7 @@
 #include "rot_enc.h"
 #include "pump_screen.h"
 
-extern lv_style_t btn_norm, btn_sel, btn_press;
+extern lv_style_t btn_norm, btn_sel, btn_press, cell_style, cell_style_left;
 
 static btn_main_t btns[2];
 static lv_obj_t * watch;
@@ -42,7 +42,6 @@ static int k_act = 0;
 static lv_obj_t *pump_scr;
 static lv_obj_t *led_online, *led_run, *l_press_min, *cpress, *l_pressm;
 static lv_obj_t *ccurrent, *l_current_max, *cdebit, *l_pump_state;
-static lv_style_t cell_style;
 static int saved_pump_state = -1, saved_pump_status = -1, saved_pump_current = -5, saved_pump_pressure_kpa = -1;
 int saved_current_lim = -1, saved_min_pres = -1, saved_max_pres = -1;
 
@@ -224,7 +223,7 @@ int do_pump_screen()
 	msg_t msg;
 	char buf[10];
 	int p_state, p_status, p_current, p_current_lim, p_min_pres, p_max_pres, p_press;
-	int i, kesc = 0;
+	int i, kesc = 0, nbuttons = 2;
 	saved_pump_state = saved_pump_status = saved_pump_pressure_kpa = -1;
 	saved_pump_current = -5;
 	draw_pump_screen();
@@ -247,20 +246,20 @@ int do_pump_screen()
 					}
 				if(msg.val == K_ROT_LEFT)
 					{
-					for (i = 0; i < 2; i++)
+					for (i = 0; i < nbuttons; i++)
 						{
 						if (btns[i].state)
 							{
 							lv_obj_clear_state(btns[i].btn, LV_STATE_FOCUSED);
 							btns[i].state = 0;
 							i++;
-							i %= 2;
+							i %= nbuttons;
 							lv_obj_add_state(btns[i].btn, LV_STATE_FOCUSED);
 							btns[i].state = 1;
 							break;
 							}
 						}
-					if (i == 2)
+					if (i == nbuttons)
 						{
 						lv_obj_add_state(btns[0].btn, LV_STATE_FOCUSED);
 						btns[0].state = 1;
@@ -268,7 +267,7 @@ int do_pump_screen()
 					}
 				else if(msg.val == K_ROT_RIGHT)
 					{
-					for (i = 1; i >= 0; i--)
+					for (i = nbuttons - 1; i >= 0; i--)
 						{
 						//bs = lv_obj_get_state(btns[i].btn);
 						if (btns[i].state)
@@ -277,7 +276,7 @@ int do_pump_screen()
 							btns[i].state = 0;
 							i--;
 							if(i < 0)
-								i = 1;
+								i = nbuttons - 1;
 							lv_obj_add_state(btns[i].btn, LV_STATE_FOCUSED);
 							btns[i].state = 1;
 							break;
@@ -285,14 +284,14 @@ int do_pump_screen()
 						}
 					if (i < 0)
 						{
-						lv_obj_add_state(btns[1].btn, LV_STATE_FOCUSED);
-						btns[1].state = 1;
+						lv_obj_add_state(btns[nbuttons - 1].btn, LV_STATE_FOCUSED);
+						btns[nbuttons - 1].state = 1;
 						}
 					}
 				}
 			if(msg.source == K_DOWN && k_act)
 				{
-				for(int i = 0; i < 2; i++)
+				for(int i = 0; i < nbuttons; i++)
 					{
 					if(btns[i].state == 1)
 						{
@@ -303,7 +302,7 @@ int do_pump_screen()
 				}
 			if(msg.source == K_UP && k_act)
 				{
-				for(int i = 0; i < 2; i++)
+				for(int i = 0; i < nbuttons; i++)
 					{
 					if(btns[i].state == 1)
 						{

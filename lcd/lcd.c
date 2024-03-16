@@ -30,9 +30,10 @@
 #include "external_defs.h"
 #include "main_screen.h"
 #include "pump_screen.h"
+#include "water_screen.h"
 #include "lcd.h"
 
-lv_style_t btn_norm, btn_sel, btn_press;
+lv_style_t btn_norm, btn_sel, btn_press, cell_style, cell_style_left;
 QueueHandle_t ui_cmd_q;
 
 int lv_timer_stop;
@@ -157,7 +158,7 @@ static void ui_task(void *pvParameters)
 			}
 		else if(ret == WATER_SCREEN)
 			{
-			//do_water_screen();
+			do_water_screen();
 			}
 		}
 	}
@@ -242,6 +243,18 @@ void lcd_init(void)
     disp_drv.user_data = panel_handle;
     disp = lv_disp_drv_register(&disp_drv);
     lv_indev_enable(NULL, false);
+
+    lv_style_init(&cell_style);
+    lv_style_reset(&cell_style);
+    lv_style_set_text_color(&cell_style, lv_color_hex(0xc0c0c0));
+    lv_style_set_text_font(&cell_style, &lv_font_montserrat_14);
+    lv_style_set_text_align(&cell_style, LV_TEXT_ALIGN_RIGHT);
+
+    lv_style_init(&cell_style_left);
+    lv_style_reset(&cell_style_left);
+    lv_style_set_text_color(&cell_style_left, lv_color_hex(0xc0c0c0));
+    lv_style_set_text_font(&cell_style_left, &lv_font_montserrat_14);
+    lv_style_set_text_align(&cell_style_left, LV_TEXT_ALIGN_LEFT);
 
     lv_style_init(&btn_sel);
     lv_style_init(&btn_norm);

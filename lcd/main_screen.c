@@ -31,7 +31,7 @@
 #include "lcd.h"
 #include "main_screen.h"
 
-extern lv_style_t btn_norm, btn_sel, btn_press;
+extern lv_style_t btn_norm, btn_sel, btn_press, cell_style, cell_style_left;
 
 static btn_main_t btns[2];
 static lv_obj_t *watch, *ledp, *ledw;
@@ -115,7 +115,7 @@ static void draw_main_screen(lv_disp_t *disp, int active_screen)
 int do_main_screen(lv_disp_t *disp, int active_screen)
 	{
 	msg_t msg;
-	int i, kesc = 0, ret = 0;
+	int i, kesc = 0, ret = 0, nbuttons = 2;
 	int p_state, p_status, p_current, p_current_lim, p_min_pres, p_max_pres, p_press;
 	k_act = 1;
 	draw_main_screen(disp, active_screen);
@@ -136,7 +136,7 @@ int do_main_screen(lv_disp_t *disp, int active_screen)
 					}
 				if(msg.val == K_ROT_LEFT)
 					{
-					for (i = 0; i < 2; i++)
+					for (i = 0; i < nbuttons; i++)
 						{
 						//bs = lv_obj_get_state(btns[i].btn);
 						if (btns[i].state)
@@ -144,13 +144,13 @@ int do_main_screen(lv_disp_t *disp, int active_screen)
 							lv_obj_clear_state(btns[i].btn, LV_STATE_FOCUSED);
 							btns[i].state = 0;
 							i++;
-							i %= 2;
+							i %= nbuttons;
 							lv_obj_add_state(btns[i].btn, LV_STATE_FOCUSED);
 							btns[i].state = 1;
 							break;
 							}
 						}
-					if (i == 2)
+					if (i == nbuttons)
 						{
 						lv_obj_add_state(btns[0].btn, LV_STATE_FOCUSED);
 						btns[0].state = 1;
@@ -158,7 +158,7 @@ int do_main_screen(lv_disp_t *disp, int active_screen)
 					}
 				else if(msg.val == K_ROT_RIGHT)
 					{
-					for (i = 1; i >= 0; i--)
+					for (i = nbuttons - 1; i >= 0; i--)
 						{
 						//bs = lv_obj_get_state(btns[i].btn);
 						if (btns[i].state)
@@ -167,7 +167,7 @@ int do_main_screen(lv_disp_t *disp, int active_screen)
 							btns[i].state = 0;
 							i--;
 							if(i < 0)
-								i = 1;
+								i = nbuttons - 1;
 							lv_obj_add_state(btns[i].btn, LV_STATE_FOCUSED);
 							btns[i].state = 1;
 							break;
@@ -175,14 +175,14 @@ int do_main_screen(lv_disp_t *disp, int active_screen)
 						}
 					if (i < 0)
 						{
-						lv_obj_add_state(btns[1].btn, LV_STATE_FOCUSED);
-						btns[1].state = 1;
+						lv_obj_add_state(btns[nbuttons - 1].btn, LV_STATE_FOCUSED);
+						btns[nbuttons - 1].state = 1;
 						}
 					}
 				}
 			if(msg.source == K_DOWN)
 				{
-				for(int i = 0; i < 2; i++)
+				for(int i = 0; i < nbuttons; i++)
 					{
 					if(btns[i].state == 1)
 						{
@@ -193,7 +193,7 @@ int do_main_screen(lv_disp_t *disp, int active_screen)
 				}
 			if(msg.source == K_UP)
 				{
-				for(int i = 0; i < 2; i++)
+				for(int i = 0; i < nbuttons; i++)
 					{
 					if(btns[i].state == 1)
 						{
@@ -210,7 +210,7 @@ int do_main_screen(lv_disp_t *disp, int active_screen)
 					gpio_set_level(LCD_BK_LIGHT, LCD_BK_LIGHT_ON_LEVEL);
 					continue;
 					}
-				for(i = 0; i < 2; i++)
+				for(i = 0; i < nbuttons; i++)
 					{
 					if(btns[i].state == 1)
 						{
@@ -219,6 +219,12 @@ int do_main_screen(lv_disp_t *disp, int active_screen)
 						if(i == 0)
 							{
 							ret = PUMP_SCREEN;
+							vTaskDelay(pdMS_TO_TICKS(300));
+							lv_obj_clear_state(btns[i].btn, LV_STATE_PRESSED);
+							}
+						else if(i == 1)
+							{
+							ret = WATER_SCREEN;
 							vTaskDelay(pdMS_TO_TICKS(300));
 							lv_obj_clear_state(btns[i].btn, LV_STATE_PRESSED);
 							}
