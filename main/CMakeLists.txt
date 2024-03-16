@@ -18,6 +18,7 @@ SRCS 					"main.c"
 						"../lcd/main_screen.c"
 						"../lcd/pump_screen.c"
 						"../lcd/water_screen.c"
+						"../lcd/water_screen_z.c"
 						"../pump_op/pumpop.c"
 						"../water_op/waterop.c"
 
