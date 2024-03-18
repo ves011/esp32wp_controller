@@ -31,6 +31,7 @@
 #include "lcd.h"
 #include "pumpop.h"
 #include "rot_enc.h"
+#include "handle_ui_key.h"
 #include "pump_screen.h"
 
 extern lv_style_t btn_norm, btn_sel, btn_press, cell_style, cell_style_left;
@@ -223,217 +224,128 @@ int do_pump_screen()
 	msg_t msg;
 	char buf[10];
 	int p_state, p_status, p_current, p_current_lim, p_min_pres, p_max_pres, p_press;
-	int i, kesc = 0, nbuttons = 2;
+	int i, kesc = 0, nbuttons = 2, ret = ESP_OK;
 	saved_pump_state = saved_pump_status = saved_pump_pressure_kpa = -1;
 	saved_pump_current = -5;
 	draw_pump_screen();
 	k_act = 1;
-	xQueueReset(ui_cmd_q);
 	msg.source = PUMP_VAL_CHANGE;
 	xQueueSend(ui_cmd_q, &msg, 0);
-	while(!kesc)
+	//get_pump_values(&p_state, &p_status, &p_current, &p_current_lim, &p_min_pres, &p_max_pres, &p_press);
+	while(1)
 		{
-		if(xQueueReceive(ui_cmd_q, &msg, portMAX_DELAY))
+		i = handle_ui_key(watch, btns, nbuttons);
+		if(i == KEY_PRESS_SHORT)
 			{
-			//ESP_LOGI("P_SCR:", "msg: %lu", msg.source);
-			if (msg.source == K_ROT) //rot left or right
+			if(btns[1].state == 1)
+				break;
+			}
+		if(i == KEY_PRESS_LONG)
+			{
+			if(btns[0].state == 1)
 				{
-				if(k_act == 0)
-					{
-					k_act = 1;
-					gpio_set_level(LCD_BK_LIGHT, LCD_BK_LIGHT_ON_LEVEL);
-					continue;
-					}
-				if(msg.val == K_ROT_LEFT)
-					{
-					for (i = 0; i < nbuttons; i++)
-						{
-						if (btns[i].state)
-							{
-							lv_obj_clear_state(btns[i].btn, LV_STATE_FOCUSED);
-							btns[i].state = 0;
-							i++;
-							i %= nbuttons;
-							lv_obj_add_state(btns[i].btn, LV_STATE_FOCUSED);
-							btns[i].state = 1;
-							break;
-							}
-						}
-					if (i == nbuttons)
-						{
-						lv_obj_add_state(btns[0].btn, LV_STATE_FOCUSED);
-						btns[0].state = 1;
-						}
-					}
-				else if(msg.val == K_ROT_RIGHT)
-					{
-					for (i = nbuttons - 1; i >= 0; i--)
-						{
-						//bs = lv_obj_get_state(btns[i].btn);
-						if (btns[i].state)
-							{
-							lv_obj_clear_state(btns[i].btn, LV_STATE_FOCUSED);
-							btns[i].state = 0;
-							i--;
-							if(i < 0)
-								i = nbuttons - 1;
-							lv_obj_add_state(btns[i].btn, LV_STATE_FOCUSED);
-							btns[i].state = 1;
-							break;
-							}
-						}
-					if (i < 0)
-						{
-						lv_obj_add_state(btns[nbuttons - 1].btn, LV_STATE_FOCUSED);
-						btns[nbuttons - 1].state = 1;
-						}
-					}
-				}
-			if(msg.source == K_DOWN && k_act)
-				{
-				for(int i = 0; i < nbuttons; i++)
-					{
-					if(btns[i].state == 1)
-						{
-						lv_obj_add_state(btns[i].btn, LV_STATE_PRESSED);
-						break;
-						}
-					}
-				}
-			if(msg.source == K_UP && k_act)
-				{
-				for(int i = 0; i < nbuttons; i++)
-					{
-					if(btns[i].state == 1)
-						{
-						lv_obj_clear_state(btns[i].btn, LV_STATE_PRESSED);
-						break;
-						}
-					}
-				}
-			if (msg.source == K_PRESS)
-				{
-				if(k_act == 0)
-					{
-					k_act = 1;
-					gpio_set_level(LCD_BK_LIGHT, LCD_BK_LIGHT_ON_LEVEL);
-					continue;
-					}
-				if(msg.val == PUSH_TIME_SHORT && btns[1].state == 1)
-					{
-					if(btns[1].state == 1)
-						{
-						kesc = 1;
-						break;
-						}
-					}
-				if(msg.val == PUSH_TIME_LONG && btns[0].state == 1)
-					{
-					//change pump state
-					int ret = ESP_FAIL;
-					if(p_status == PUMP_ONLINE)
-						ret = pump_operational(PUMP_OFFLINE);
-					else if(p_status == PUMP_OFFLINE)
-						ret = pump_operational(PUMP_ONLINE);
+				if(p_status == PUMP_ONLINE)
+					ret = pump_operational(PUMP_OFFLINE);
+				else if(p_status == PUMP_OFFLINE)
+					ret = pump_operational(PUMP_ONLINE);
 
-					if(ret == ESP_OK)
-						{
-						lv_label_set_text(l_pump_state, "OK");
-						lv_obj_set_style_text_color(l_pump_state, lv_color_hex(0x00ff00), 0);
-						}
-					else
-						{
-						lv_label_set_text(l_pump_state, "Eroare pompa");
-						lv_obj_set_style_text_color(l_pump_state, lv_color_hex(0xff4040), 0);
-						}
-					}
-				}
-			if(msg.source == PUMP_VAL_CHANGE)
-				{
-				get_pump_values(&p_state, &p_status, &p_current, &p_current_lim, &p_min_pres, &p_max_pres, &p_press);
-				lv_label_set_text(l_pump_state, "OK");
-				lv_obj_set_style_text_color(l_pump_state, lv_color_hex(0x00ff00), 0);
-				if(p_state != saved_pump_state)
+				if(ret == ESP_OK)
 					{
-					saved_pump_state = p_state;
-					if(p_state == PUMP_ON)
-						lv_led_set_color(led_run, lv_color_hex(0x40f040));
-					else
-						lv_led_set_color(led_run, lv_color_hex(0x606060));
+					lv_label_set_text(l_pump_state, "OK");
+					lv_obj_set_style_text_color(l_pump_state, lv_color_hex(0x00ff00), 0);
 					}
-				if(p_status != saved_pump_status)
+				else
 					{
-					saved_pump_status = p_status;
-					if(p_status == PUMP_ONLINE)
-						{
-						lv_led_set_color(led_online, lv_color_hex(0xf0f040));
-						lv_label_set_text(l_pump_state, "OK");
-						lv_obj_set_style_text_color(l_pump_state, lv_color_hex(0x40ff40), 0);
-						}
-					else if(p_status == PUMP_OFFLINE)
-						{
-						lv_led_set_color(led_online, lv_color_hex(0x606060));
-						lv_label_set_text(l_pump_state, "OK");
-						lv_obj_set_style_text_color(l_pump_state, lv_color_hex(0x40ff40), 0);
-						}
-					if(p_status == PUMP_FAULT)
-						{
-						lv_led_set_color(led_online, lv_color_hex(0xf00000));
-						lv_label_set_text(l_pump_state, "Eroare pompa");
-						lv_obj_set_style_text_color(l_pump_state, lv_color_hex(0xff4040), 0);
-						}
+					lv_label_set_text(l_pump_state, "Eroare pompa");
+					lv_obj_set_style_text_color(l_pump_state, lv_color_hex(0xff4040), 0);
 					}
-				if(p_current != saved_pump_current)
-					{
-					saved_pump_current = p_current;
-					sprintf(buf, "%3.1f", p_current / 1000.);
-					lv_label_set_text(ccurrent, buf);
-					}
-				if(p_current_lim != saved_current_lim)
-					{
-					saved_current_lim = p_current_lim;
-					sprintf(buf, "%3.1f", p_current_lim / 1000.);
-					lv_label_set_text(l_current_max, buf);
-					}
-				if(p_min_pres != saved_min_pres)
-					{
-					saved_min_pres = p_min_pres;
-					lv_label_set_text_fmt(l_press_min, "%3d", p_min_pres);
-					}
-				if(p_max_pres != saved_max_pres)
-					{
-					saved_max_pres = p_max_pres;
-					lv_label_set_text_fmt(l_pressm, "%3d", p_max_pres);
-					}
-				if(p_press != saved_pump_pressure_kpa)
-					{
-					saved_pump_pressure_kpa = p_press;
-					lv_label_set_text_fmt(cpress, "%3d", p_press);
-					}
-				}
-			if(msg.source == PUMP_OP_ERROR)
-				{
-				lv_label_set_text(l_pump_state, "Eroare pompa");
-				lv_obj_set_style_text_color(l_pump_state, lv_color_hex(0xff4040), 0);
-				}
-			if(msg.source == INACT_TIME)
-				{
-				time_t now = 0;
-				char buf[28];
-				struct tm timeinfo = { 0 };
-				time(&now);
-				localtime_r(&now, &timeinfo);
-				sprintf(buf, "%02d:%02d - %02d.%02d.%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_mday, timeinfo.tm_mon + 1, (timeinfo.tm_year % 100));
-				lv_label_set_text(watch, buf);
-
-				if(k_act == 0)
-					{
-					gpio_set_level(LCD_BK_LIGHT, LCD_BK_LIGHT_OFF_LEVEL);
-					}
-				k_act = 0;
-
 				}
 			}
+		if(i == PUMP_VAL_CHANGE)
+			{
+			get_pump_values(&p_state, &p_status, &p_current, &p_current_lim, &p_min_pres, &p_max_pres, &p_press);
+			lv_label_set_text(l_pump_state, "OK");
+			lv_obj_set_style_text_color(l_pump_state, lv_color_hex(0x00ff00), 0);
+			if(p_state != saved_pump_state)
+				{
+				saved_pump_state = p_state;
+				if(p_state == PUMP_ON)
+					lv_led_set_color(led_run, lv_color_hex(0x40f040));
+				else
+					lv_led_set_color(led_run, lv_color_hex(0x606060));
+				}
+			if(p_status != saved_pump_status)
+				{
+				saved_pump_status = p_status;
+				if(p_status == PUMP_ONLINE)
+					{
+					lv_led_set_color(led_online, lv_color_hex(0xf0f040));
+					if(p_current > PUMP_CURRENT_OFF && p_current < p_current_lim)
+						{
+						lv_label_set_text(l_pump_state, "OK");
+						lv_obj_set_style_text_color(l_pump_state, lv_color_hex(0x40ff40), 0);
+						}
+					else
+						{
+						lv_label_set_text(l_pump_state, "Eroare pompa");
+						lv_obj_set_style_text_color(l_pump_state, lv_color_hex(0xff4040), 0);
+						}
+					}
+				else if(p_status == PUMP_OFFLINE)
+					{
+					lv_led_set_color(led_online, lv_color_hex(0x606060));
+					if(p_current < PUMP_CURRENT_OFF)
+						{
+						lv_label_set_text(l_pump_state, "OK");
+						lv_obj_set_style_text_color(l_pump_state, lv_color_hex(0x40ff40), 0);
+						}
+					else
+						{
+						lv_label_set_text(l_pump_state, "Eroare pompa");
+						lv_obj_set_style_text_color(l_pump_state, lv_color_hex(0xff4040), 0);
+						}
+					}
+				if(p_status == PUMP_FAULT)
+					{
+					lv_led_set_color(led_online, lv_color_hex(0xf00000));
+					lv_label_set_text(l_pump_state, "Eroare pompa");
+					lv_obj_set_style_text_color(l_pump_state, lv_color_hex(0xff4040), 0);
+					}
+				}
+			if(p_current != saved_pump_current)
+				{
+				saved_pump_current = p_current;
+				sprintf(buf, "%3.1f", p_current / 1000.);
+				lv_label_set_text(ccurrent, buf);
+				}
+			if(p_current_lim != saved_current_lim)
+				{
+				saved_current_lim = p_current_lim;
+				sprintf(buf, "%3.1f", p_current_lim / 1000.);
+				lv_label_set_text(l_current_max, buf);
+				}
+			if(p_min_pres != saved_min_pres)
+				{
+				saved_min_pres = p_min_pres;
+				lv_label_set_text_fmt(l_press_min, "%3d", p_min_pres);
+				}
+			if(p_max_pres != saved_max_pres)
+				{
+				saved_max_pres = p_max_pres;
+				lv_label_set_text_fmt(l_pressm, "%3d", p_max_pres);
+				}
+			if(p_press != saved_pump_pressure_kpa)
+				{
+				saved_pump_pressure_kpa = p_press;
+				lv_label_set_text_fmt(cpress, "%3d", p_press);
+				}
+			}
+		if(msg.source == PUMP_OP_ERROR)
+			{
+			lv_label_set_text(l_pump_state, "Eroare pompa");
+			lv_obj_set_style_text_color(l_pump_state, lv_color_hex(0xff4040), 0);
+			}
 		}
+
 	return PUMP_SCREEN;
 	}

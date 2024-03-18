@@ -232,13 +232,14 @@ void app_main(void)
 	register_westaop();
 #endif
 #if ACTIVE_CONTROLLER == WATER_CONTROLLER || ACTIVE_CONTROLLER == WP_CONTROLLER
-	//register_waterop();
+	register_waterop();
 #endif
 	controller_op_registered = 1;
 
 #ifdef WITH_CONSOLE
 #if defined(CONFIG_ESP_CONSOLE_UART_DEFAULT) || defined(CONFIG_ESP_CONSOLE_UART_CUSTOM)
     esp_console_dev_uart_config_t hw_config = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
+    repl_config.task_stack_size = 8192;
     ESP_ERROR_CHECK(esp_console_new_repl_uart(&hw_config, &repl_config, &repl));
 
 #elif defined(CONFIG_ESP_CONSOLE_USB_CDC)

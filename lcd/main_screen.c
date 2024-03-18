@@ -29,6 +29,8 @@
 #include "lvgl.h"
 #include "pumpop.h"
 #include "lcd.h"
+#include "pump_screen.h"
+#include "water_screen.h"
 #include "main_screen.h"
 
 extern lv_style_t btn_norm, btn_sel, btn_press, cell_style, cell_style_left;
@@ -38,7 +40,7 @@ static lv_obj_t *watch, *ledp, *ledw;
 static int k_act;
 static lv_obj_t *main_scr;
 
-static void draw_main_screen(lv_disp_t *disp, int active_screen)
+static void draw_main_screen(int active_screen)
 	{
 	lv_obj_t *label;
 
@@ -112,13 +114,13 @@ static void draw_main_screen(lv_disp_t *disp, int active_screen)
     gpio_set_level(LCD_BK_LIGHT, LCD_BK_LIGHT_ON_LEVEL);
 	}
 
-int do_main_screen(lv_disp_t *disp, int active_screen)
+int do_main_screen(int active_screen)
 	{
 	msg_t msg;
 	int i, kesc = 0, ret = 0, nbuttons = 2;
 	int p_state, p_status, p_current, p_current_lim, p_min_pres, p_max_pres, p_press;
 	k_act = 1;
-	draw_main_screen(disp, active_screen);
+	draw_main_screen(active_screen);
 	xQueueReset(ui_cmd_q);
 	msg.source = PUMP_VAL_CHANGE;
 	xQueueSend(ui_cmd_q, &msg, 0);
@@ -214,19 +216,23 @@ int do_main_screen(lv_disp_t *disp, int active_screen)
 					{
 					if(btns[i].state == 1)
 						{
-						kesc = 1;
+						//kesc = 1;
 						lv_obj_add_state(btns[i].btn, LV_STATE_PRESSED);
 						if(i == 0)
 							{
 							ret = PUMP_SCREEN;
-							vTaskDelay(pdMS_TO_TICKS(300));
-							lv_obj_clear_state(btns[i].btn, LV_STATE_PRESSED);
+							//vTaskDelay(pdMS_TO_TICKS(300));
+							//lv_obj_clear_state(btns[i].btn, LV_STATE_PRESSED);
+							do_pump_screen();
+							draw_main_screen(PUMP_SCREEN);
 							}
 						else if(i == 1)
 							{
 							ret = WATER_SCREEN;
-							vTaskDelay(pdMS_TO_TICKS(300));
-							lv_obj_clear_state(btns[i].btn, LV_STATE_PRESSED);
+							//vTaskDelay(pdMS_TO_TICKS(300));
+							//lv_obj_clear_state(btns[i].btn, LV_STATE_PRESSED);
+							do_water_screen(0);
+							draw_main_screen(WATER_SCREEN);
 							}
 						break;
 						}

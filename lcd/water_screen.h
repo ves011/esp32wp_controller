@@ -9,7 +9,7 @@
 #define LCD_WATER_SCREEN_H_
 
 
-int do_water_screen();
+int do_water_screen(int active_screen);
 
 
 #endif /* LCD_WATER_SCREEN_H_ */

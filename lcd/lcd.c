@@ -149,17 +149,7 @@ static void ui_task(void *pvParameters)
 	active_screen = PUMP_SCREEN;
 	while(1)
 		{
-		ret = do_main_screen(disp, active_screen);
-		active_screen = ret;
-		if(ret == PUMP_SCREEN)
-			{
-			do_pump_screen();
-			//do_main_screen(disp, active_screen);
-			}
-		else if(ret == WATER_SCREEN)
-			{
-			do_water_screen();
-			}
+		do_main_screen(active_screen);
 		}
 	}
 

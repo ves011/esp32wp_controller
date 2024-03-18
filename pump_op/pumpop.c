@@ -57,7 +57,7 @@ uint32_t overp_time_limit = 10;
 static const char *TAG = "PUMP OP";
 static QueueHandle_t pump_cmd_queue = NULL;
 
-static uint32_t testModeCurrent;
+static uint32_t testModeCurrent, testModePress;
 uint32_t loop;
 
 		/**
@@ -82,10 +82,10 @@ static int get_pump_adc_values(int *psensor_mv)
 	int nr_samp = NR_SAMPLES_PC;
 	int16_t *c_data, *c_data_filt, c_temp[NR_SAMPLES_PC], p_data[NR_SAMPLES_PS];
 	int16_t max_mv = 0, min_mv = 0;
-	if(testModeCurrent > 0)
+	if(testModeCurrent > 0 && pump_status == PUMP_ONLINE)
 		{
 		pump_current = testModeCurrent;
-		*psensor_mv = 312;
+		*psensor_mv = testModePress;
 		return ESP_OK;
 		}
 	*psensor_mv = 0;
@@ -580,6 +580,8 @@ int do_pumpop(int argc, char **argv)
     	{
     	if(pumpop_args.minP->count)
     		testModeCurrent = pumpop_args.minP->ival[0];
+    	if(pumpop_args.maxP->count)
+    		testModePress = pumpop_args.maxP->ival[0];
     	}
     else
 		{
@@ -692,7 +694,7 @@ void pump_mon_task(void *pvParameters)
 					}
 				if(pump_status == PUMP_ONLINE)
 					{
-					if(xSemaphoreTake(pumpop_mutex, ( TickType_t ) 100 )) // 1 sec wait
+					//if(xSemaphoreTake(pumpop_mutex, ( TickType_t ) 100 )) // 1 sec wait
 						{
 						if(pump_pressure_kpa >= pump_max_lim)
 							{
@@ -743,12 +745,14 @@ void pump_mon_task(void *pvParameters)
 									}
 								else
 									{
+									stop_pump(1);
+									pump_operational(PUMP_OFFLINE);
 									msg_ui.source = PUMP_OP_ERROR;
 									xQueueSend(ui_cmd_q, &msg_ui, 0);
 									}
 								}
 							}
-						xSemaphoreGive(pumpop_mutex);
+						//xSemaphoreGive(pumpop_mutex);
 						}
 					if(pump_state == PUMP_ON)
 						{

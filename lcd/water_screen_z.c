@@ -30,8 +30,11 @@
 #include "lvgl.h"
 #include "lcd.h"
 #include "pumpop.h"
+#include "waterop.h"
 #include "rot_enc.h"
 #include "pump_screen.h"
+
+#include "handle_ui_key.h"
 #include "water_screen_z.h"
 
 extern lv_style_t btn_norm, btn_sel, btn_press, cell_style, cell_style_left;
@@ -40,12 +43,14 @@ static btn_main_t btns[2];
 
 
 static int k_act = 0;
+static last_status_t last_status[DVCOUNT];
+static dvprogram_t dv_program;
 
 static void draw_water_screen_z(int zone)
     {
     time_t now = 0;
     char buf[28];
-    struct tm* timeinfo;
+    struct tm timeinfo = {0};
     gpio_set_level(LCD_BK_LIGHT, LCD_BK_LIGHT_OFF_LEVEL);
     water_scr_0 = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(water_scr_0, lv_color_hex(0x0), LV_PART_MAIN);
@@ -56,8 +61,8 @@ static void draw_water_screen_z(int zone)
     lv_obj_set_pos(watch, 5, 10);
     lv_obj_set_size(watch, 120, 20);
     time(&now);
-    timeinfo = localtime(&now);
-    sprintf(buf, "%02d:%02d - %02d.%02d.%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_mday, (timeinfo->tm_mon + 1), (timeinfo->tm_year % 100));
+    localtime_r(&now, &timeinfo);
+    sprintf(buf, "%02d:%02d - %02d.%02d.%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_mday, (timeinfo.tm_mon + 1), (timeinfo.tm_year % 100));
     lv_label_set_text(watch, buf);
 
     lv_obj_t* l_title = lv_label_create(water_scr_0);
@@ -100,7 +105,7 @@ static void draw_water_screen_z(int zone)
     lv_obj_set_style_text_font(date_last, &seg_black_14, 0);
     lv_obj_set_pos(date_last, 150, 90);
     lv_obj_set_size(date_last, 140, 20);
-    lv_label_set_text(date_last, "22.10.24 - 08.25");
+    lv_label_set_text(date_last, "");
 
     label = lv_label_create(water_scr_0);
     lv_obj_add_style(label, &cell_style, 0);
@@ -112,7 +117,7 @@ static void draw_water_screen_z(int zone)
     lv_obj_add_style(state, &cell_style_left, 0);
     lv_obj_set_pos(state, 150, 110);
     lv_obj_set_size(state, 150, 20);
-    lv_label_set_text(state, "eroare pompa");
+    lv_label_set_text(state, "");
 
     label = lv_label_create(water_scr_0);
     lv_obj_add_style(label, &cell_style, 0);
@@ -124,7 +129,7 @@ static void draw_water_screen_z(int zone)
     lv_obj_add_style(timew, &cell_style_left, 0);
     lv_obj_set_pos(timew, 150, 130);
     lv_obj_set_size(timew, 100, 20);
-    lv_label_set_text(timew, "30 min");
+    lv_label_set_text(timew, "");
 
     label = lv_label_create(water_scr_0);
     lv_obj_add_style(label, &cell_style, 0);
@@ -136,7 +141,7 @@ static void draw_water_screen_z(int zone)
     lv_obj_add_style(wtotal, &cell_style_left, 0);
     lv_obj_set_pos(wtotal, 150, 150);
     lv_obj_set_size(wtotal, 100, 20);
-    lv_label_set_text(wtotal, "250 l");
+    lv_label_set_text(wtotal, "");
 
 
     label = lv_label_create(water_scr_0);
@@ -151,7 +156,7 @@ static void draw_water_screen_z(int zone)
     lv_obj_set_style_text_font(date_next, &seg_black_14, 0);
     lv_obj_set_pos(date_next, 150, 175);
     lv_obj_set_size(date_next, 140, 20);
-    lv_label_set_text(date_next, "23.10.24 - 08.25");
+    lv_label_set_text(date_next, "");
 
     btns[1].btn = lv_btn_create(water_scr_0);
     lv_obj_add_style(btns[1].btn, &btn_norm, 0);
@@ -172,134 +177,95 @@ static void draw_water_screen_z(int zone)
 int do_water_screen_z(int zone)
 	{
 	msg_t msg;
-	char buf[10];
-	int p_state, p_status, p_current, p_current_lim, p_min_pres, p_max_pres, p_press;
-	int i, kesc = 0, nbuttons = 2;
+	char buf[40];
+	int w_status, qwater, starth, startm;
+	int saved_w_status, saved_qwater;
+	//int p_state, p_status, p_current, p_current_lim, p_min_pres, p_max_pres, p_press;
+	int i, j, kesc = 0, nbuttons = 2;
 	//saved_pump_state = saved_pump_status = saved_pump_pressure_kpa = -1;
 	//saved_pump_current = -5;
 	draw_water_screen_z(zone);
 	k_act = 1;
 	xQueueReset(ui_cmd_q);
-	msg.source = PUMP_VAL_CHANGE;
+	//msg.source = PUMP_VAL_CHANGE;
+	//xQueueSend(ui_cmd_q, &msg, 0);
+	msg.source = WATER_VAL_CHANGE;
 	xQueueSend(ui_cmd_q, &msg, 0);
-	while(!kesc)
+	while(1)
 		{
-		if(xQueueReceive(ui_cmd_q, &msg, portMAX_DELAY))
+		i = handle_ui_key(watch, btns, nbuttons);
+		if(i == KEY_PRESS_SHORT)
 			{
-			if (msg.source == K_ROT) //rot left or right
+			if(btns[1].state == 1)
+				break;
+			}
+		if(i == KEY_PRESS_LONG)
+			{
+			if(btns[0].state == 1)
 				{
-				if(k_act == 0)
-					{
-					k_act = 1;
-					gpio_set_level(LCD_BK_LIGHT, LCD_BK_LIGHT_ON_LEVEL);
-					continue;
-					}
-				if(msg.val == K_ROT_LEFT)
-					{
-					for (i = 0; i < nbuttons; i++)
-						{
-						if (btns[i].state)
-							{
-							lv_obj_clear_state(btns[i].btn, LV_STATE_FOCUSED);
-							btns[i].state = 0;
-							i++;
-							i %= nbuttons;
-							lv_obj_add_state(btns[i].btn, LV_STATE_FOCUSED);
-							btns[i].state = 1;
-							break;
-							}
-						}
-					if (i == nbuttons)
-						{
-						lv_obj_add_state(btns[0].btn, LV_STATE_FOCUSED);
-						btns[0].state = 1;
-						}
-					}
-				else if(msg.val == K_ROT_RIGHT)
-					{
-					for (i = nbuttons - 1; i >= 0; i--)
-						{
-						//bs = lv_obj_get_state(btns[i].btn);
-						if (btns[i].state)
-							{
-							lv_obj_clear_state(btns[i].btn, LV_STATE_FOCUSED);
-							btns[i].state = 0;
-							i--;
-							if(i < 0)
-								i = nbuttons - 1;
-							lv_obj_add_state(btns[i].btn, LV_STATE_FOCUSED);
-							btns[i].state = 1;
-							break;
-							}
-						}
-					if (i < 0)
-						{
-						lv_obj_add_state(btns[nbuttons - 1].btn, LV_STATE_FOCUSED);
-						btns[nbuttons - 1].state = 1;
-						}
-					}
-				}
-			if(msg.source == K_DOWN && k_act)
-				{
-				for(int i = 0; i < nbuttons; i++)
-					{
-					if(btns[i].state == 1)
-						{
-						lv_obj_add_state(btns[i].btn, LV_STATE_PRESSED);
-						break;
-						}
-					}
-				}
-			if(msg.source == K_UP && k_act)
-				{
-				for(int i = 0; i < nbuttons; i++)
-					{
-					if(btns[i].state == 1)
-						{
-						lv_obj_clear_state(btns[i].btn, LV_STATE_PRESSED);
-						break;
-						}
-					}
-				}
-			if (msg.source == K_PRESS)
-				{
-				if(k_act == 0)
-					{
-					k_act = 1;
-					gpio_set_level(LCD_BK_LIGHT, LCD_BK_LIGHT_ON_LEVEL);
-					continue;
-					}
-				if(msg.val == PUSH_TIME_SHORT)
-					{
-					if(btns[0].state == 1)
-						{
-
-						}
-					else if(btns[1].state == 1)
-						{
-						kesc = 1;
-						break;
-						}
-					}
-				}
-			if(msg.source == INACT_TIME)
-				{
-				time_t now = 0;
-				char buf[28];
-				struct tm timeinfo = { 0 };
-				time(&now);
-				localtime_r(&now, &timeinfo);
-				sprintf(buf, "%02d:%02d - %02d.%02d.%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_mday, timeinfo.tm_mon + 1, (timeinfo.tm_year % 100));
-				lv_label_set_text(watch, buf);
-
-				if(k_act == 0)
-					{
-					gpio_set_level(LCD_BK_LIGHT, LCD_BK_LIGHT_OFF_LEVEL);
-					}
-				k_act = 0;
+				// dv open zone
 				}
 			}
+		if(i == WATER_VAL_CHANGE)
+			{
+			if(get_water_values(last_status, &dv_program) == ESP_OK)
+				{
+				for(i = 0; i < DVCOUNT; i++)
+					{
+					if(last_status[i].dv == zone)
+						{
+						lv_label_set_text_fmt(date_last, "%02d.%02d.%02d - %02d:%02d", last_status[i].day, last_status[i].mon + 1, (last_status[i].year % 100), last_status[i].hour, last_status[i].min);
+						if(last_status[i].cs == COMPLETED)
+							{
+							lv_label_set_text(state, "OK");
+							}
+						else
+							{
+							switch(last_status[i].cs)
+								{
+								case ABORTED: strcpy(buf, "ABORTED: ");break;
+								case START_ERROR: strcpy(buf, "START ERROR: ");break;
+								case STOP_ERROR: strcpy(buf, "STOP_ERROR: ");break;
+								default: strcpy(buf, "invalid: ");break;
+								}
+							}
+						char buferr[10];
+						sprintf(buferr, "(%d)", last_status[i].fault);
+						strcat(buf, buferr);
+						lv_label_set_text(state, buf);
+						starth = -1;
+						for(j = 0; j < DVCOUNT; j++)
+							{
+							if(dv_program.p[j].dv == zone)
+								{
+								starth = dv_program.p[j].starth;
+								startm = dv_program.p[j].startm;
+								break;
+								}
+							}
+						if(starth >= 0)
+							{
+							int duration = (last_status[i].hour * 60 + last_status[i].min) - (starth *60 + startm);
+							lv_label_set_text_fmt(timew, "%d min", duration);
+							}
+						lv_label_set_text_fmt(wtotal, "%d l", last_status[i].qwater);
+						struct tm timeinfo = { 0 };
+						time_t now = 0;
+						//struct tm *timeinfo = { 0 };
+						time(&now);
+						now += 86400;
+						localtime_r(&now, &timeinfo);
+						lv_label_set_text_fmt(date_next, "%02d.%02d.%02d - %02d:%02d", timeinfo.tm_mday, timeinfo.tm_mon + 1, (timeinfo.tm_year % 100),
+																						dv_program.p[j].starth, dv_program.p[j].startm);
+						break;
+						}
+					}
+				}
+			else
+				ESP_LOGI("WSCR", "Cannot read program status");
+			}
 		}
+
 	return zone;
 	}
 

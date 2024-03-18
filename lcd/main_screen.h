@@ -9,7 +9,7 @@
 #define LCD_MAIN_SCREEN_H_
 
 
-int do_main_screen(lv_disp_t *disp, int active_screen);
+int do_main_screen(int active_screen);
 
 
 #endif /* LCD_MAIN_SCREEN_H_ */

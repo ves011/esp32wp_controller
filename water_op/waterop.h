@@ -67,14 +67,15 @@
 
 #define FAULT_PUMP				10
 #define DV_FAULT				11
-#define PUMP_NO_RESPONSE		12
+//#define PUMP_NO_RESPONSE		12
 #define DV_OPEN_FAIL			13
 #define DV_CLOSE_FAIL			14
-#define GET_STATE_NOT_PERMITED	15
-#define GET_STATE_ERROR			16
-#define OP_ABORTED				17
+//#define GET_STATE_NOT_PERMITED	15
+//#define GET_STATE_ERROR			16
+//#define OP_ABORTED				17
 #define PRESS2HIGH				18
 #define PRESS2LOW				19
+#define PRESS2LOWDVCLOSED		20
 
 
 #define WATER_PUMP_DESC			"pump01"
@@ -112,13 +113,28 @@ typedef struct
 			int stopm;
 			int cs;
 			int fault;
+			int qwater;
 			} p[DVCOUNT];
 		} dvprogram_t;
 
+typedef struct
+	{
+	int year;
+	int mon;
+	int day;
+	int hour;
+	int min;
+	int sec;
+	int dv;
+	int cs;
+	int fault;
+	int qwater;
+	}last_status_t;
 
 int do_dvop(int argc, char **argv);
 void register_waterop(void);
 void get_dv_current(int *dv_current, int *stdev);
 void parse_devstr(int argc, char **argv);
+int get_water_values(last_status_t *lst, dvprogram_t *dvprog);
 
 #endif /* WATER_OP_WATEROP_H_ */
