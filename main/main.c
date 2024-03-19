@@ -181,13 +181,17 @@ void app_main(void)
 	initialize_nvs();
 	controller_op_registered = 0;
 	rw_params(PARAM_READ, PARAM_CONSOLE, &console_state);
-	lcd_init();
-	init_rotenc();
 	tsync = 0;
 	wifi_join(DEFAULT_SSID, DEFAULT_PASS, JOIN_TIMEOUT_MS);
 	esp_wifi_set_ps(WIFI_PS_MAX_MODEM);
 	tcp_log_init();
 	esp_log_set_vprintf(my_log_vprintf);
+	ui_cmd_q = xQueueCreate(10, sizeof(msg_t));
+	if(!ui_cmd_q)
+		{
+		ESP_LOGE(TAG, "Unable to create UI cmd queue");
+		esp_restart();
+		}
 
 	// start task to sync local time with NTP server
 	xTaskCreate(ntp_sync, "NTP_sync_task", 6134, NULL, USER_TASK_PRIORITY, &ntp_sync_task_handle);
@@ -236,6 +240,8 @@ void app_main(void)
 #endif
 	controller_op_registered = 1;
 
+	lcd_init();
+	init_rotenc();
 #ifdef WITH_CONSOLE
 #if defined(CONFIG_ESP_CONSOLE_UART_DEFAULT) || defined(CONFIG_ESP_CONSOLE_UART_CUSTOM)
     esp_console_dev_uart_config_t hw_config = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();

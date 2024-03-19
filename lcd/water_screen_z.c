@@ -178,8 +178,8 @@ int do_water_screen_z(int zone)
 	{
 	msg_t msg;
 	char buf[40];
-	int w_status, qwater, starth, startm;
-	int saved_w_status, saved_qwater;
+	int w_status, qwater, starth = -1, startm = -1;
+	int saved_w_status, saved_qwater, ret;
 	//int p_state, p_status, p_current, p_current_lim, p_min_pres, p_max_pres, p_press;
 	int i, j, kesc = 0, nbuttons = 2;
 	//saved_pump_state = saved_pump_status = saved_pump_pressure_kpa = -1;
@@ -208,7 +208,33 @@ int do_water_screen_z(int zone)
 			}
 		if(i == WATER_VAL_CHANGE)
 			{
-			if(get_water_values(last_status, &dv_program) == ESP_OK)
+			ret = get_water_values(last_status, &dv_program);
+			starth = -1;
+			for(j = 0; j < DVCOUNT; j++)
+				{
+				if(dv_program.p[j].dv == zone)
+					{
+					starth = dv_program.p[j].starth;
+					startm = dv_program.p[j].startm;
+					break;
+					}
+				}
+			if(j < DVCOUNT)
+				{
+				struct tm timeinfo = { 0 };
+				time_t now = 0;
+				time(&now);
+				localtime_r(&now, &timeinfo);
+				if(timeinfo.tm_hour * 60 + timeinfo.tm_min > starth * 60 + startm)
+					{
+					now += 86400;
+					localtime_r(&now, &timeinfo);
+					}
+				lv_label_set_text_fmt(date_next, "%02d.%02d.%02d - %02d:%02d", timeinfo.tm_mday, timeinfo.tm_mon + 1, (timeinfo.tm_year % 100),	dv_program.p[j].starth, dv_program.p[j].startm);
+				}
+			else
+				lv_label_set_text(date_next, "N/A");
+			if(ret == ESP_OK)
 				{
 				for(i = 0; i < DVCOUNT; i++)
 					{
@@ -219,8 +245,13 @@ int do_water_screen_z(int zone)
 							{
 							lv_label_set_text(state, "OK");
 							}
+						else if(last_status[i].cs == IN_PROGRESS)
+							{
+							lv_label_set_text(state, "In progress");
+							}
 						else
 							{
+							char buferr[10];
 							switch(last_status[i].cs)
 								{
 								case ABORTED: strcpy(buf, "ABORTED: ");break;
@@ -228,44 +259,48 @@ int do_water_screen_z(int zone)
 								case STOP_ERROR: strcpy(buf, "STOP_ERROR: ");break;
 								default: strcpy(buf, "invalid: ");break;
 								}
+							sprintf(buferr, "(%d)", last_status[i].fault);
+							strcat(buf, buferr);
+							lv_label_set_text(state, buf);
 							}
-						char buferr[10];
-						sprintf(buferr, "(%d)", last_status[i].fault);
-						strcat(buf, buferr);
-						lv_label_set_text(state, buf);
-						starth = -1;
-						for(j = 0; j < DVCOUNT; j++)
-							{
-							if(dv_program.p[j].dv == zone)
-								{
-								starth = dv_program.p[j].starth;
-								startm = dv_program.p[j].startm;
-								break;
-								}
-							}
-						if(starth >= 0)
+
+						if(j < DVCOUNT) // valid program
 							{
 							int duration = (last_status[i].hour * 60 + last_status[i].min) - (starth *60 + startm);
 							lv_label_set_text_fmt(timew, "%d min", duration);
 							}
+						else
+							lv_label_set_text(timew, "N/A");
 						lv_label_set_text_fmt(wtotal, "%d l", last_status[i].qwater);
-						struct tm timeinfo = { 0 };
-						time_t now = 0;
-						//struct tm *timeinfo = { 0 };
-						time(&now);
-						now += 86400;
-						localtime_r(&now, &timeinfo);
-						lv_label_set_text_fmt(date_next, "%02d.%02d.%02d - %02d:%02d", timeinfo.tm_mday, timeinfo.tm_mon + 1, (timeinfo.tm_year % 100),
-																						dv_program.p[j].starth, dv_program.p[j].startm);
 						break;
 						}
 					}
+				if(i == DVCOUNT)
+					{
+					lv_label_set_text(date_last, "N/A");
+					lv_label_set_text(state, "N/A");
+					lv_label_set_text(timew, "N/A");
+					lv_label_set_text(wtotal, "N/A");
+					}
 				}
-			else
-				ESP_LOGI("WSCR", "Cannot read program status");
+			else if(ret == ESP_ERR_NOT_FOUND)
+				{
+				ESP_LOGI("WSCR", "No program_status.txt (yet)");
+				lv_label_set_text(date_last, "N/A");
+				lv_label_set_text(state, "N/A");
+				lv_label_set_text(timew, "N/A");
+				lv_label_set_text(wtotal, "N/A");
+				}
+			else if(ret == ESP_FAIL)
+				{
+				ESP_LOGI("WSCR", "Cannot get water values");
+				lv_label_set_text(date_last, "Err");
+				lv_label_set_text(state, "Err");
+				lv_label_set_text(timew, "Err");
+				lv_label_set_text(wtotal, "Err");
+				}
 			}
 		}
-
 	return zone;
 	}
 

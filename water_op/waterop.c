@@ -237,14 +237,14 @@ static int close_dv(int dvnum)
 				{
 				if(dv_current < CURRENT_OFF_LIM) // close dv OK
 					{
-					ESP_LOGI(TAG, "open DV%d OK %d %d", dvnum, i, dv_current);
-					activeDV =  dvconfig[dvnum].dvno;
-					dvconfig[dvnum].state = DVOPEN;
+					ESP_LOGI(TAG, "close DV%d OK %d %d", dvnum, i, dv_current);
+					activeDV =  -1;
+					dvconfig[dvnum].state = DVCLOSE;
 					ret = ESP_OK;
 					}
 				else // still dv consumes current after 15 secs --> close failure
 					{
-					ESP_LOGI(TAG, "open DV%d failure %d %d", dvnum, i, dv_current);
+					ESP_LOGI(TAG, "close DV%d failure %d %d", dvnum, i, dv_current);
 					activeDV =  -1;
 					dvconfig[dvnum].state = DVSTATE_FAULT;
 					}
@@ -370,7 +370,7 @@ int do_dvop(int argc, char **argv)
     	{
     	read_program(&pval);
     	for(int i = 0; i < DVCOUNT; i++)
-    		pval.p[i].cs = 0;
+    		pval.p[i].cs = NOT_STARTED;
     	write_program(&pval);
     	read_program(&dv_program);
     	}
@@ -647,8 +647,6 @@ void register_waterop()
     	};
     ESP_ERROR_CHECK(esp_console_cmd_register(&dvop_cmd));
     publish_reqID();
-    subscribe(WATER_PUMP_DESC"/monitor");
-	subscribe(WATER_PUMP_DESC"/state");
     read_program(&dv_program);
 	xTaskCreate(water_mon_task, "wmon_task", 8192, NULL, 5, &water_task_handle);
 	if(!water_task_handle)
@@ -664,7 +662,8 @@ static int read_program_status(int mq)
 	esp_err_t ret;
 	int i;
 	struct stat st;
-	int yst, mst, dst, hst, minst, sst, dv, cs, fst, qwst;
+	//int yst, mst, dst, hst, minst,
+	int dv, cs, fst, qwst;
 	for (i = 0; i < DVCOUNT; i++)
 		last_wstatus[i].dv = -1;
 
@@ -724,6 +723,7 @@ static int read_program_status(int mq)
 		{
 		sprintf(mqttbuf, "%s\1not_found\1", PROG_HISTORY);
 		publish_state(mqttbuf, 1, 0);
+		ret = ESP_ERR_NOT_FOUND;
 		}
 	return ret;
 	}
@@ -735,8 +735,11 @@ static int read_program(dvprogram_t *param_val)
     struct stat st;
     ret = ESP_FAIL;
     memset(param_val, 0, sizeof(dvprogram_t));
-    param_val->p[0].cs = param_val->p[1].cs = -1;
-	param_val->p[0].dv = param_val->p[1].dv = -1;
+    for(int i = 0; i < DVCOUNT; i++)
+    	{
+		param_val->p[i].cs = -1;
+		param_val->p[i].dv = -1;
+    	}
 	if (stat(BASE_PATH"/"PROGRAM_FILE, &st) != 0)
 		{
 		// file does no exists
@@ -846,7 +849,17 @@ static int start_watering(int idx)
 	close_dv(0);
 	close_dv(1);
 	activeDV = -1;
-
+	if(test_mode == 2)
+		{
+		dv_program.p[idx].cs = IN_PROGRESS;
+		dv_program.p[idx].fault = 0;
+		watering_status = WATER_ON;
+		ESP_LOGI(TAG, "Watering program for DV%d started", dv_program.p[idx].dv);
+		activeDV = dv_program.p[idx].dv;
+		write_program(&dv_program);
+		write_status(idx);
+		return 0;
+		}
 	//set pump online
 	if(pump_operational(PUMP_ONLINE) == ESP_OK)
 		{
@@ -923,6 +936,15 @@ static int start_watering(int idx)
 static int stop_watering(int idx, int reason)
 	{
 	int ret = STOP_WATERING_ERROR;
+	if(test_mode == 2)
+		{
+		watering_status = WATER_OFF;
+		dv_program.p[idx].cs = reason;
+		dv_program.p[idx].fault = 0;
+		write_program(&dv_program);
+		write_status(idx);
+		return ESP_OK;
+		}
 	if(dv_program.p[idx].cs == IN_PROGRESS)
 		{
 		ESP_LOGI(TAG, "Stop watering");
@@ -947,9 +969,10 @@ static int stop_watering(int idx, int reason)
 
 int get_water_values(last_status_t *lst, dvprogram_t *dvprog)
 	{
-	if(read_program_status(0) == ESP_OK)
+	int i, ret = ESP_FAIL;
+	if((ret = read_program_status(0)) == ESP_OK)
 		{
-		for(int i = 0; i < DVCOUNT; i++)
+		for(i = 0; i < DVCOUNT; i++)
 			{
 			lst[i].dv = last_wstatus[i].dv;
 			lst[i].cs = last_wstatus[i].cs;
@@ -961,19 +984,20 @@ int get_water_values(last_status_t *lst, dvprogram_t *dvprog)
 			lst[i].hour = last_wstatus[i].hour;
 			lst[i].min = last_wstatus[i].min;
 			lst[i].sec = last_wstatus[i].sec;
-
-			dvprog->p[i].cs = dv_program.p[i].cs;
-			dvprog->p[i].fault = dv_program.p[i].fault;
-			dvprog->p[i].starth = dv_program.p[i].starth;
-			dvprog->p[i].startm = dv_program.p[i].startm;
-			dvprog->p[i].stoph = dv_program.p[i].stoph;
-			dvprog->p[i].stopm = dv_program.p[i].stopm;
-			dvprog->p[i].dv = dv_program.p[i].dv;
-			dvprog->p[i].qwater = dv_program.p[i].qwater;
 			}
-		return ESP_OK;
 		}
-	return ESP_FAIL;
+	for(i = 0; i < DVCOUNT; i++)
+		{
+		dvprog->p[i].cs = dv_program.p[i].cs;
+		dvprog->p[i].fault = dv_program.p[i].fault;
+		dvprog->p[i].starth = dv_program.p[i].starth;
+		dvprog->p[i].startm = dv_program.p[i].startm;
+		dvprog->p[i].stoph = dv_program.p[i].stoph;
+		dvprog->p[i].stopm = dv_program.p[i].stopm;
+		dvprog->p[i].dv = dv_program.p[i].dv;
+		dvprog->p[i].qwater = dv_program.p[i].qwater;
+		}
+	return ret;
 	}
 
 static bool IRAM_ATTR test_timer_callback(gptimer_handle_t c_timer, const gptimer_alarm_event_data_t *edata, void *args)
