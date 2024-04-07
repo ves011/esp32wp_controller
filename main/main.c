@@ -126,9 +126,12 @@ void app_main(void)
 
 	goto exit;
 	*/
-#if ACTIVE_CONTROLLER == PUMP_CONTROLLER ||	ACTIVE_CONTROLLER == WP_CONTROLLER
+	int bp_val = 1;
+#if ACTIVE_CONTROLLER == PUMP_CONTROLLER
 	int bp_ctrl = PUMP_ONLINE_CMD;
-
+#elif ACTIVE_CONTROLLER == WP_CONTROLLER
+	int bp_ctrl = ROT_ENC_KEY;
+	bp_val = 1;
 #elif ACTIVE_CONTROLLER == AGATE_CONTROLLER
 	int bp_ctrl = 6; //IO6 on J5 pin 8
 #elif ACTIVE_CONTROLLER == WESTA_CONTROLLER
@@ -149,7 +152,7 @@ void app_main(void)
     /*
      * if BOOT_CTRL_PIN is 0 at boot restart with esp32_ota
      */
-    if(gpio_get_level(bp_ctrl) == 0)
+    if(gpio_get_level(bp_ctrl) == bp_val)
     	{
     	ESP_LOGI(TAG, "app main 1:1");
     	const esp_partition_t *sbp = NULL;;

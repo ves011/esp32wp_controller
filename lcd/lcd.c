@@ -97,7 +97,7 @@ static void example_increase_lvgl_tick(void *arg)
     lv_tick_inc(LVGL_TICK_PERIOD_MS);
 }
 
-static bool IRAM_ATTR inactivity_timer_callback(gptimer_handle_t c_timer, const gptimer_alarm_event_data_t *edata, void *args)
+/*static bool IRAM_ATTR inactivity_timer_callback(gptimer_handle_t c_timer, const gptimer_alarm_event_data_t *edata, void *args)
 	{
 	msg_t msg;
     BaseType_t high_task_awoken = pdFALSE;
@@ -105,9 +105,24 @@ static bool IRAM_ATTR inactivity_timer_callback(gptimer_handle_t c_timer, const 
 	xQueueSendFromISR(ui_cmd_q, &msg, NULL);
     return high_task_awoken == pdTRUE; // return whether we need to yield at the end of ISR
 	}
-
+*/
+static void inactivity_timer_callback(void *args)
+	{
+	msg_t msg;
+    msg.source = INACT_TIME;
+	xQueueSendFromISR(ui_cmd_q, &msg, NULL);
+	}
 static void config_inactivity_timer()
 	{
+	const esp_timer_create_args_t inactivity_timer_args =
+		{
+         .callback = &inactivity_timer_callback,
+         .name = ""
+		};
+	esp_timer_handle_t inactivity_timer;
+    ESP_ERROR_CHECK(esp_timer_create(&inactivity_timer_args, &inactivity_timer));
+    ESP_ERROR_CHECK(esp_timer_start_periodic(inactivity_timer, INACTIVITY_TIME));
+    /*
 	int ret;
 	gptimer_handle_t inactivity_timer;
 	inactivity_timer = NULL;
@@ -130,6 +145,7 @@ static void config_inactivity_timer()
 	ESP_LOGI(TAG, "cb register %d", ret);
 	ESP_ERROR_CHECK(gptimer_enable(inactivity_timer));
 	gptimer_start(inactivity_timer);
+	*/
 	}
 static void lvgl_task(void *pvParameters)
 	{

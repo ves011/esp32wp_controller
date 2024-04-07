@@ -83,7 +83,7 @@ int get_dv_adc_values(int *dv_mv)
 			*dv_mv = 0;
 		return ret;
 		}
-	if(adc_get_data(MOTSENSE_CHN, dvv, 3) == ESP_OK)
+	if(adc_get_data(MOTSENSE_CHN, dvv, 5) == ESP_OK)
 		*dv_mv = (dvv[0] + dvv[1] + dvv[2]) / 3;
 	else
 		ret = ESP_FAIL;
@@ -646,7 +646,7 @@ void register_waterop()
         .argtable = &waterop_args
     	};
     ESP_ERROR_CHECK(esp_console_cmd_register(&dvop_cmd));
-    publish_reqID();
+    //publish_reqID();
     read_program(&dv_program);
 	xTaskCreate(water_mon_task, "wmon_task", 8192, NULL, 5, &water_task_handle);
 	if(!water_task_handle)

@@ -23,6 +23,9 @@
 	#define PUMP_ONLINE				(2)
 	#define PUMP_OFFLINE			(3)
 
+#define QMETER_FREQ_RES				1000000	// 1msec resolution
+#define QMETER_MEAS_TIME			1000000	// 1 sec
+
 /** How long(msec) the button has to be pressed  to send the command*/
 #define PUSH_TIME_US			(3000000)
 

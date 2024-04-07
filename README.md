@@ -4,8 +4,9 @@ It's a rework of generic esp32_controller dedicated to a small irrigation automa
 
 ## Introduction
 It follows the same approach like [esp32_controller](https://github.com/ves011/esp32_controller).<br>
-This implementation uses an old [ESP32 dev board using ESP32WROOM32](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-devkitc.html). 
+This implementation uses an old [ESP32 dev board with ESP32WROOM32](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-devkitc.html). 
 In addition, because the poor performance of internal ADC it uses an external [AD7811](https://www.analog.com/en/products/ad7811.html) connected over SPI. <br>
+Has a small user interface built with a 2.8" LCD panel basd on ILI9341 and a rotary encoder switch.
 
 ## How it works
 

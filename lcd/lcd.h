@@ -13,13 +13,13 @@
 #define LCD_PIXEL_CLOCK_HZ     (20 * 1000 * 1000)
 #define LCD_BK_LIGHT_ON_LEVEL  1
 #define LCD_BK_LIGHT_OFF_LEVEL !LCD_BK_LIGHT_ON_LEVEL
-#define LCD_SCLK           	2
-#define LCD_MOSI           	4
+#define LCD_SCLK           	5
+#define LCD_MOSI           	18
 #define LCD_MISO           -1
-#define LCD_DC         		16
+#define LCD_DC         		19
 #define LCD_RST        		21
 #define LCD_CS         		22
-#define LCD_BK_LIGHT       	15
+#define LCD_BK_LIGHT       	17
 #define TOUCH_CS       		-1
 
 // The pixel number in horizontal and vertical

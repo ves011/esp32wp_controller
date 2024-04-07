@@ -30,6 +30,7 @@
 #include "hal/adc_types.h"
 //#include "driver/timer.h"
 #include "driver/gptimer.h"
+#include "esp_timer.h"
 #include "gpios.h"
 #include "mqtt_ctrl.h"
 #include "utils.h"
@@ -53,6 +54,10 @@ int stdev_c, stdev_p;
 static time_t start_overp_time;
 uint32_t overp_time_limit = 10;
 
+static gptimer_handle_t qmeter_timer;
+static int qmeter_pc, qmeter_pc_sec;
+static uint64_t qmeter_ts;
+
 
 static const char *TAG = "PUMP OP";
 static QueueHandle_t pump_cmd_queue = NULL;
@@ -75,6 +80,42 @@ static struct
     struct arg_end *end;
 	} pumpop_args;
 
+void IRAM_ATTR qmeter_gpio_handler(void* arg)
+	{
+	qmeter_pc++;
+	}
+
+static bool IRAM_ATTR qmeter_timer_callback(gptimer_handle_t qm_timer, const gptimer_alarm_event_data_t *edata, void *args)
+	{
+    BaseType_t high_task_awoken = pdFALSE;
+    qmeter_pc_sec = qmeter_pc;
+    qmeter_pc = 0;
+    qmeter_ts = esp_timer_get_time() / 1000000;
+    return high_task_awoken == pdTRUE; // return whether we need to yield at the end of ISR
+	}
+
+static void config_qmeter_timer()
+	{
+	qmeter_timer = NULL;
+	gptimer_config_t gptconf = 	{
+								.clk_src = GPTIMER_CLK_SRC_DEFAULT,
+								.direction = GPTIMER_COUNT_UP,
+								.resolution_hz = QMETER_FREQ_RES,					//1 msec resolution
+
+								};
+	gptimer_alarm_config_t al_config = 	{
+										.reload_count = 0,
+										.alarm_count = QMETER_MEAS_TIME,
+										.flags.auto_reload_on_alarm = true,
+										};
+	gptimer_event_callbacks_t cbs = {.on_alarm = &qmeter_timer_callback,}; // register user callback
+	ESP_ERROR_CHECK(gptimer_new_timer(&gptconf, &qmeter_timer));
+	ESP_ERROR_CHECK(gptimer_set_alarm_action(qmeter_timer, &al_config));
+	ESP_ERROR_CHECK(gptimer_register_event_callbacks(qmeter_timer, &cbs, NULL));
+	ESP_ERROR_CHECK(gptimer_enable(qmeter_timer));
+	gptimer_start(qmeter_timer);
+	}
+
 #ifdef ADC_AD7811
 static int get_pump_adc_values(int *psensor_mv)
 	{
@@ -91,13 +132,13 @@ static int get_pump_adc_values(int *psensor_mv)
 	*psensor_mv = 0;
 	pump_current = -1;
 	//get pump current data
-	if((ret = adc_get_data(0, c_temp, nr_samp)) == ESP_OK)
+	if((ret = adc_get_data(CURRENT_CHN, c_temp, nr_samp)) == ESP_OK)
 		{
 		//for(i = 0; i < NR_SAMPLES_PC; i++)
 		//	ESP_LOGI(TAG, "%d %d", i, c_temp[i]);
 		//get pressure sensor data
 		nr_samp = NR_SAMPLES_PS;
-		if((ret = adc_get_data(0, p_data, nr_samp)) == ESP_OK)
+		if((ret = adc_get_data(SENSOR_CHN, p_data, nr_samp)) == ESP_OK)
 			{
 			//pressure sensor mv = mean of data
 			*psensor_mv = 0;
@@ -193,9 +234,18 @@ static void config_pump_gpio(void)
      * GPIO_DRIVE_CAP_3 dI ~120 mA ->
      * GPIO_DRIVE_CAP_0 dI ~45mA
      */
-    gpio_set_drive_capability(PUMP_ONOFF_PIN, GPIO_DRIVE_CAP_0);
+    //gpio_set_drive_capability(PUMP_ONOFF_PIN, GPIO_DRIVE_CAP_0);
     gpio_config(&io_conf);
     gpio_set_level(PUMP_ONOFF_PIN, PIN_OFF);
+
+	io_conf.intr_type = GPIO_INTR_POSEDGE;
+	io_conf.mode = GPIO_MODE_INPUT;
+    io_conf.pin_bit_mask = (1ULL << PIN_NUM_QMETER);
+    io_conf.pull_down_en = 0;
+    io_conf.pull_up_en = 1;
+    gpio_config(&io_conf);
+    gpio_isr_handler_add(PIN_NUM_QMETER, qmeter_gpio_handler, (void*) PIN_NUM_QMETER);
+
 #ifdef LEDS
 	/*
 	 * output GPIOs
@@ -624,6 +674,7 @@ void register_pumpop()
     	};
     ESP_ERROR_CHECK(esp_console_cmd_register(&pumpop_cmd));
     get_pump_state();
+    config_qmeter_timer();
 
     xTaskCreate(pump_mon_task, "pump_task", 8192, NULL, 5, &pump_task_handle);
 	if(!pump_task_handle)
@@ -637,6 +688,7 @@ void pump_mon_task(void *pvParameters)
 	{
 	minmax_t min[10], max[10];
 	int saved_pump_state = -1, saved_pump_status = -1, saved_pump_current = -1, saved_pump_pressure_kpa = -1;
+	uint64_t saved_qmeter_ts = 0;
 	char msg[80];
 	msg_t msg_ui;
 	uint32_t pcount = 20, void_run = 0;
@@ -792,6 +844,11 @@ void pump_mon_task(void *pvParameters)
 			vTaskDelay(100 / portTICK_PERIOD_MS);
 			}
 		loop++;
+		if(saved_qmeter_ts != qmeter_ts)
+			{
+			saved_qmeter_ts = qmeter_ts;
+			//ESP_LOGI(TAG, "qmeter ts: %llu / %d", saved_qmeter_ts, qmeter_pc_sec);
+			}
 		}
 	}
 
