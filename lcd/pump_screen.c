@@ -46,6 +46,8 @@ static lv_obj_t *ccurrent, *l_current_max, *cdebit, *l_pump_state;
 static int saved_pump_state = -1, saved_pump_status = -1, saved_pump_current = -5, saved_pump_pressure_kpa = -1;
 int saved_current_lim = -1, saved_min_pres = -1, saved_max_pres = -1;
 
+//static const char *TAG = "P_SCR";
+
 static void draw_pump_screen()
 	{
 	time_t now = 0;
@@ -70,7 +72,7 @@ static void draw_pump_screen()
     //lv_obj_add_style(watch, &watch_style, 0);
     time(&now);
 	localtime_r(&now, &timeinfo);
-    sprintf(buf, "%02d:%02d - %02d.%02d.%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_mday, (timeinfo.tm_mon + 1), (timeinfo.tm_year %100));
+    sprintf(buf, "%02d:%02d - %02d.%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_mday, (timeinfo.tm_mon + 1));
     lv_label_set_text(watch, buf);
 
     lv_obj_t *l_title = lv_label_create(pump_scr);
@@ -224,7 +226,7 @@ int do_pump_screen()
 	msg_t msg;
 	char buf[10];
 	int p_state, p_status, p_current, p_current_lim, p_min_pres, p_max_pres, p_press;
-	int i, kesc = 0, nbuttons = 2, ret = ESP_OK;
+	int i, nbuttons = 2, ret = ESP_OK;
 	saved_pump_state = saved_pump_status = saved_pump_pressure_kpa = -1;
 	saved_pump_current = -5;
 	draw_pump_screen();
@@ -235,6 +237,7 @@ int do_pump_screen()
 	while(1)
 		{
 		i = handle_ui_key(watch, btns, nbuttons);
+		//ESP_LOGI(TAG, "handle_ui_key() %d", i);
 		if(i == KEY_PRESS_SHORT)
 			{
 			if(btns[1].state == 1)
@@ -340,7 +343,7 @@ int do_pump_screen()
 				lv_label_set_text_fmt(cpress, "%3d", p_press);
 				}
 			}
-		if(msg.source == PUMP_OP_ERROR)
+		if(i == PUMP_OP_ERROR)
 			{
 			lv_label_set_text(l_pump_state, "Eroare pompa");
 			lv_obj_set_style_text_color(l_pump_state, lv_color_hex(0xff4040), 0);

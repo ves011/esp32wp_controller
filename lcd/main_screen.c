@@ -29,6 +29,8 @@
 #include "lvgl.h"
 #include "pumpop.h"
 #include "lcd.h"
+#include "rot_enc.h"
+#include "handle_ui_key.h"
 #include "pump_screen.h"
 #include "water_screen.h"
 #include "main_screen.h"
@@ -126,151 +128,53 @@ int do_main_screen(int active_screen)
 	xQueueSend(ui_cmd_q, &msg, 0);
 	while(!kesc)
 		{
-		if(xQueueReceive(ui_cmd_q, &msg, portMAX_DELAY))
+		i = handle_ui_key(watch, btns, nbuttons);
+		if(i == KEY_PRESS_SHORT)
 			{
-			if (msg.source == K_ROT) //rot left or right
+			for(i = 0; i < nbuttons; i++)
 				{
-				if(k_act == 0)
+				if(btns[i].state == 1)
 					{
-					k_act = 1;
-					gpio_set_level(LCD_BK_LIGHT, LCD_BK_LIGHT_ON_LEVEL);
-					continue;
-					}
-				if(msg.val == K_ROT_LEFT)
-					{
-					for (i = 0; i < nbuttons; i++)
+					//kesc = 1;
+					lv_obj_add_state(btns[i].btn, LV_STATE_PRESSED);
+					if(i == 0)
 						{
-						//bs = lv_obj_get_state(btns[i].btn);
-						if (btns[i].state)
-							{
-							lv_obj_clear_state(btns[i].btn, LV_STATE_FOCUSED);
-							btns[i].state = 0;
-							i++;
-							i %= nbuttons;
-							lv_obj_add_state(btns[i].btn, LV_STATE_FOCUSED);
-							btns[i].state = 1;
-							break;
-							}
+						ret = PUMP_SCREEN;
+						do_pump_screen();
+						draw_main_screen(PUMP_SCREEN);
 						}
-					if (i == nbuttons)
+					else if(i == 1)
 						{
-						lv_obj_add_state(btns[0].btn, LV_STATE_FOCUSED);
-						btns[0].state = 1;
+						ret = WATER_SCREEN;
+						do_water_screen(0);
+						draw_main_screen(WATER_SCREEN);
 						}
-					}
-				else if(msg.val == K_ROT_RIGHT)
-					{
-					for (i = nbuttons - 1; i >= 0; i--)
-						{
-						//bs = lv_obj_get_state(btns[i].btn);
-						if (btns[i].state)
-							{
-							lv_obj_clear_state(btns[i].btn, LV_STATE_FOCUSED);
-							btns[i].state = 0;
-							i--;
-							if(i < 0)
-								i = nbuttons - 1;
-							lv_obj_add_state(btns[i].btn, LV_STATE_FOCUSED);
-							btns[i].state = 1;
-							break;
-							}
-						}
-					if (i < 0)
-						{
-						lv_obj_add_state(btns[nbuttons - 1].btn, LV_STATE_FOCUSED);
-						btns[nbuttons - 1].state = 1;
-						}
+					break;
 					}
 				}
-			if(msg.source == K_DOWN)
+			}
+
+		if(i == PUMP_VAL_CHANGE)
+			{
+			get_pump_values(&p_state, &p_status, &p_current, &p_current_lim, &p_min_pres, &p_max_pres, &p_press);
+			if(p_status == PUMP_FAULT)
+				lv_led_set_color(ledp, lv_color_hex(0xff4040));
+			else
 				{
-				for(int i = 0; i < nbuttons; i++)
-					{
-					if(btns[i].state == 1)
-						{
-						lv_obj_add_state(btns[i].btn, LV_STATE_PRESSED);
-						break;
-						}
-					}
-				}
-			if(msg.source == K_UP)
-				{
-				for(int i = 0; i < nbuttons; i++)
-					{
-					if(btns[i].state == 1)
-						{
-						lv_obj_clear_state(btns[i].btn, LV_STATE_PRESSED);
-						break;
-						}
-					}
-				}
-			if (msg.source == K_PRESS)
-				{
-				if(k_act == 0)
-					{
-					k_act = 1;
-					gpio_set_level(LCD_BK_LIGHT, LCD_BK_LIGHT_ON_LEVEL);
-					continue;
-					}
-				for(i = 0; i < nbuttons; i++)
-					{
-					if(btns[i].state == 1)
-						{
-						//kesc = 1;
-						lv_obj_add_state(btns[i].btn, LV_STATE_PRESSED);
-						if(i == 0)
-							{
-							ret = PUMP_SCREEN;
-							//vTaskDelay(pdMS_TO_TICKS(300));
-							//lv_obj_clear_state(btns[i].btn, LV_STATE_PRESSED);
-							do_pump_screen();
-							draw_main_screen(PUMP_SCREEN);
-							}
-						else if(i == 1)
-							{
-							ret = WATER_SCREEN;
-							//vTaskDelay(pdMS_TO_TICKS(300));
-							//lv_obj_clear_state(btns[i].btn, LV_STATE_PRESSED);
-							do_water_screen(0);
-							draw_main_screen(WATER_SCREEN);
-							}
-						break;
-						}
-					}
-				}
-			if(msg.source == PUMP_VAL_CHANGE)
-				{
-				get_pump_values(&p_state, &p_status, &p_current, &p_current_lim, &p_min_pres, &p_max_pres, &p_press);
-				if(p_status == PUMP_FAULT)
-					lv_led_set_color(ledp, lv_color_hex(0xff4040));
+				if(p_state == PUMP_ON)
+					lv_led_set_color(ledp, lv_color_hex(0x40ff40));
 				else
 					{
-					if(p_state == PUMP_ON)
-						lv_led_set_color(ledp, lv_color_hex(0x40ff40));
-					else
-						{
-						if(p_status == PUMP_ONLINE)
-							lv_led_set_color(ledp, lv_color_hex(0xffff00));
-						else if(p_status == PUMP_OFFLINE)
-							lv_led_set_color(ledp, lv_color_hex(0x606060));
-						}
+					if(p_status == PUMP_ONLINE)
+						lv_led_set_color(ledp, lv_color_hex(0xffff00));
+					else if(p_status == PUMP_OFFLINE)
+						lv_led_set_color(ledp, lv_color_hex(0x606060));
 					}
 				}
-			if(msg.source == INACT_TIME)
-				{
-				time_t now = 0;
-				char buf[24];
-				struct tm timeinfo = { 0 };
-				time(&now);
-				localtime_r(&now, &timeinfo);
-				sprintf(buf, "%02d:%02d - %02d.%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_mday, timeinfo.tm_mon + 1);
-				lv_label_set_text(watch, buf);
-				if(k_act == 0)
-					{
-					gpio_set_level(LCD_BK_LIGHT, LCD_BK_LIGHT_OFF_LEVEL);
-					}
-				k_act = 0;
-				}
+			}
+		if(i == WATER_VAL_CHANGE)
+			{
+
 			}
 		}
 	return ret;

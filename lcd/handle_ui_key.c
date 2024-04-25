@@ -32,35 +32,38 @@
 #include "lcd.h"
 #include "pumpop.h"
 #include "rot_enc.h"
+static int k_act = 1;
 
 int handle_ui_key(lv_obj_t *watch, btn_main_t *btns, int nbuttons)
 	{
 	msg_t msg;
-	int i, kesc = 0, k_act = 1, ret = ESP_OK;
+	int i, kesc = 0, ret = ESP_OK, b_light = LCD_BK_LIGHT_ON_LEVEL;
 	while(!kesc)
 		{
 		if(xQueueReceive(ui_cmd_q, &msg, portMAX_DELAY))
 			{
-			if (msg.source == K_ROT) //rot left or right
+			if (msg.source & K_ROT) //rot left or right
 				{
 				if(k_act == 0)
 					{
 					k_act = 1;
-					gpio_set_level(LCD_BK_LIGHT, LCD_BK_LIGHT_ON_LEVEL);
-					continue;
+					if(b_light == LCD_BK_LIGHT_OFF_LEVEL)
+						{
+						gpio_set_level(LCD_BK_LIGHT, LCD_BK_LIGHT_ON_LEVEL);
+						b_light = LCD_BK_LIGHT_ON_LEVEL;
+						continue;
+						}
 					}
-				if(msg.val == K_ROT_LEFT)
+				if(msg.val == K_ROT_RIGHT)
 					{
 					for (i = 0; i < nbuttons; i++)
 						{
 						if (btns[i].state)
 							{
-							ESP_LOGI("WSCR", "clear %d", i);
 							lv_obj_clear_state(btns[i].btn, LV_STATE_FOCUSED);
 							btns[i].state = 0;
 							i++;
 							i %= nbuttons;
-							ESP_LOGI("WSCR", "set %d", i);
 							lv_obj_add_state(btns[i].btn, LV_STATE_FOCUSED);
 							btns[i].state = 1;
 							break;
@@ -72,7 +75,7 @@ int handle_ui_key(lv_obj_t *watch, btn_main_t *btns, int nbuttons)
 						btns[0].state = 1;
 						}
 					}
-				else if(msg.val == K_ROT_RIGHT)
+				else if(msg.val == K_ROT_LEFT)
 					{
 					for (i = nbuttons - 1; i >= 0; i--)
 						{
@@ -96,55 +99,68 @@ int handle_ui_key(lv_obj_t *watch, btn_main_t *btns, int nbuttons)
 						}
 					}
 				}
-			if(msg.source == K_DOWN && k_act)
-				{
-				for(int i = 0; i < nbuttons; i++)
-					{
-					if(btns[i].state == 1)
-						{
-						lv_obj_add_state(btns[i].btn, LV_STATE_PRESSED);
-						break;
-						}
-					}
-				}
-			if(msg.source == K_UP && k_act)
-				{
-				for(int i = 0; i < nbuttons; i++)
-					{
-					if(btns[i].state == 1)
-						{
-						lv_obj_clear_state(btns[i].btn, LV_STATE_PRESSED);
-						break;
-						}
-					}
-				}
-			if (msg.source == K_PRESS)
+			if(msg.source & K_KEY)
 				{
 				if(k_act == 0)
 					{
 					k_act = 1;
-					gpio_set_level(LCD_BK_LIGHT, LCD_BK_LIGHT_ON_LEVEL);
-					continue;
+					if(b_light == LCD_BK_LIGHT_OFF_LEVEL)
+						{
+						gpio_set_level(LCD_BK_LIGHT, LCD_BK_LIGHT_ON_LEVEL);
+						b_light = LCD_BK_LIGHT_ON_LEVEL;
+						continue;
+						}
 					}
-				if(msg.val == PUSH_TIME_SHORT)
+				if(msg.source == K_DOWN && k_act)
 					{
 					for(int i = 0; i < nbuttons; i++)
 						{
 						if(btns[i].state == 1)
 							{
-							kesc = 1;
-							ret = KEY_PRESS_SHORT;
+							lv_obj_add_state(btns[i].btn, LV_STATE_PRESSED);
+							break;
 							}
 						}
 					}
-				else if(msg.val == PUSH_TIME_LONG)
+				if(msg.source == K_UP && k_act)
 					{
 					for(int i = 0; i < nbuttons; i++)
 						{
 						if(btns[i].state == 1)
 							{
-							kesc = 1;
-							ret = KEY_PRESS_LONG;
+							lv_obj_clear_state(btns[i].btn, LV_STATE_PRESSED);
+							break;
+							}
+						}
+					}
+				if (msg.source == K_PRESS)
+					{
+					if(k_act == 0)
+						{
+						k_act = 1;
+						gpio_set_level(LCD_BK_LIGHT, LCD_BK_LIGHT_ON_LEVEL);
+						continue;
+						}
+					if(msg.val == PUSH_TIME_SHORT)
+						{
+						for(int i = 0; i < nbuttons; i++)
+							{
+							if(btns[i].state == 1)
+								{
+								kesc = 1;
+								ret = KEY_PRESS_SHORT;
+								}
+							}
+						}
+					else if(msg.val == PUSH_TIME_LONG)
+						{
+						for(int i = 0; i < nbuttons; i++)
+							{
+							if(btns[i].state == 1)
+								{
+								kesc = 1;
+								ret = KEY_PRESS_LONG;
+								}
 							}
 						}
 					}
@@ -156,15 +172,14 @@ int handle_ui_key(lv_obj_t *watch, btn_main_t *btns, int nbuttons)
 				struct tm timeinfo = { 0 };
 				time(&now);
 				localtime_r(&now, &timeinfo);
-				sprintf(buf, "%02d:%02d - %02d.%02d.%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_mday, timeinfo.tm_mon + 1, (timeinfo.tm_year % 100));
+				sprintf(buf, "%02d:%02d - %02d.%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_mday, timeinfo.tm_mon + 1);
 				lv_label_set_text(watch, buf);
-/*
 				if(k_act == 0)
 					{
 					gpio_set_level(LCD_BK_LIGHT, LCD_BK_LIGHT_OFF_LEVEL);
+					b_light = LCD_BK_LIGHT_OFF_LEVEL;
 					}
 				k_act = 0;
-*/
 				}
 			if(msg.source == PUMP_VAL_CHANGE)
 				{

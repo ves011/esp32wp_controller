@@ -108,24 +108,11 @@ static void initialize_nvs(void)
 
 void app_main(void)
 	{
+	msg_t msg;
+	msg.source = BOOT_MSG;
 	ESP_LOGI(TAG, "app main");
 	gpio_install_isr_service(0);
-	/*
-	register_system();
-	init_rotenc();
-	lcd_init();
-	int argc = 1;
-	char *argv[2];
-	argv[0] = calloc(20, sizeof(uint8_t));
-	strcpy(argv[0], "tasks");
-	do_system_cmd(argc, argv);
-	strcpy(argv[0], "free");
-	do_system_cmd(argc, argv);
-	strcpy(argv[0], "heap");
-	do_system_cmd(argc, argv);
 
-	goto exit;
-	*/
 	int bp_val = 1;
 #if ACTIVE_CONTROLLER == PUMP_CONTROLLER
 	int bp_ctrl = PUMP_ONLINE_CMD;
@@ -154,6 +141,8 @@ void app_main(void)
      */
     if(gpio_get_level(bp_ctrl) == bp_val)
     	{
+    	msg.val = 10;
+    	xQueueSend(ui_cmd_q, &msg, 0);
     	ESP_LOGI(TAG, "app main 1:1");
     	const esp_partition_t *sbp = NULL;;
     	esp_partition_iterator_t pit = esp_partition_find(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_ANY, NULL);
@@ -175,33 +164,45 @@ void app_main(void)
     		}
     	}
 	gpio_reset_pin(bp_ctrl);
-	restart_in_progress = 0;
-	console_state = CONSOLE_OFF;
-	setenv("TZ","EET-2EEST,M3.4.0/03,M10.4.0/04",1);
-	ESP_LOGI(TAG, "spifffs check");
-	spiffs_storage_check();
-	ESP_LOGI(TAG, "initialize nvs");
-	initialize_nvs();
-	controller_op_registered = 0;
-	rw_params(PARAM_READ, PARAM_CONSOLE, &console_state);
-	tsync = 0;
-	wifi_join(DEFAULT_SSID, DEFAULT_PASS, JOIN_TIMEOUT_MS);
-	esp_wifi_set_ps(WIFI_PS_MAX_MODEM);
-	tcp_log_init();
-	esp_log_set_vprintf(my_log_vprintf);
+	/*
 	ui_cmd_q = xQueueCreate(10, sizeof(msg_t));
 	if(!ui_cmd_q)
 		{
 		ESP_LOGE(TAG, "Unable to create UI cmd queue");
 		esp_restart();
 		}
+	*/
+	lcd_init();
+	restart_in_progress = 0;
+	controller_op_registered = 0;
+	console_state = CONSOLE_OFF;
+	setenv("TZ","EET-2EEST,M3.4.0/03,M10.4.0/04",1);
+	ESP_LOGI(TAG, "spifffs check");
+	spiffs_storage_check();
+	ESP_LOGI(TAG, "initialize nvs");
+	initialize_nvs();
+    msg.val = 0;
+    xQueueSend(ui_cmd_q, &msg, 0);
+
+	rw_params(PARAM_READ, PARAM_CONSOLE, &console_state);
+	tsync = 0;
+	wifi_join(DEFAULT_SSID, DEFAULT_PASS, JOIN_TIMEOUT_MS);
+	esp_wifi_set_ps(WIFI_PS_MAX_MODEM);
+	msg.val = 1;
+    xQueueSend(ui_cmd_q, &msg, 0);
+	tcp_log_init();
+	esp_log_set_vprintf(my_log_vprintf);
+	msg.val = 2;
+    xQueueSend(ui_cmd_q, &msg, 0);
 
 	// start task to sync local time with NTP server
 	xTaskCreate(ntp_sync, "NTP_sync_task", 6134, NULL, USER_TASK_PRIORITY, &ntp_sync_task_handle);
-
+	msg.val = 3;
+    xQueueSend(ui_cmd_q, &msg, 0);
 	if(mqtt_start() == ESP_OK)
 		register_mqtt();
-
+	msg.val = 4;
+    xQueueSend(ui_cmd_q, &msg, 0);
 #ifdef WITH_CONSOLE
 	esp_console_repl_t *repl = NULL;
     esp_console_repl_config_t repl_config = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
@@ -225,6 +226,8 @@ void app_main(void)
 	esp_console_register_help_command();
 	register_system();
 	register_wifi();
+	msg.val = 5;
+    xQueueSend(ui_cmd_q, &msg, 0);
 
 
 
@@ -232,6 +235,8 @@ void app_main(void)
 	register_gateop();
 #endif
 #if ACTIVE_CONTROLLER == PUMP_CONTROLLER || ACTIVE_CONTROLLER == WP_CONTROLLER
+	msg.val = 6;
+    xQueueSend(ui_cmd_q, &msg, 0);
 	register_ad();
 	register_pumpop();
 #endif
@@ -239,11 +244,16 @@ void app_main(void)
 	register_westaop();
 #endif
 #if ACTIVE_CONTROLLER == WATER_CONTROLLER || ACTIVE_CONTROLLER == WP_CONTROLLER
+	msg.val = 7;
+    xQueueSend(ui_cmd_q, &msg, 0);
 	register_waterop();
+
 #endif
 	controller_op_registered = 1;
+	msg.val = 8;
+    xQueueSend(ui_cmd_q, &msg, 0);
 
-	lcd_init();
+	//lcd_init();
 	init_rotenc();
 #ifdef WITH_CONSOLE
 #if defined(CONFIG_ESP_CONSOLE_UART_DEFAULT) || defined(CONFIG_ESP_CONSOLE_UART_CUSTOM)

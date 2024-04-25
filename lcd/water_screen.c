@@ -37,8 +37,8 @@
 #include "water_screen.h"
 
 extern lv_style_t btn_norm, btn_sel, btn_press, cell_style, cell_style_left;
-static lv_obj_t *water_scr, *watch, *led_act0, *led_act1;
-static btn_main_t btns[3];
+static lv_obj_t *water_scr, *watch, *led_act[4];
+static btn_main_t btns[5];
 
 static int k_act = 0;
 
@@ -64,7 +64,7 @@ static void draw_water_screen(int active_screen)
     lv_obj_set_size(watch, 120, 20);
     time(&now);
     timeinfo = localtime(&now);
-    sprintf(buf, "%02d:%02d - %02d.%02d.%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_mday, (timeinfo->tm_mon + 1), (timeinfo->tm_year % 100));
+    sprintf(buf, "%02d:%02d - %02d.%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_mday, (timeinfo->tm_mon + 1));
     lv_label_set_text(watch, buf);
 
     lv_obj_t* l_title = lv_label_create(water_scr);
@@ -79,9 +79,10 @@ static void draw_water_screen(int active_screen)
     lv_obj_add_style(btns[0].btn, &btn_norm, 0);
     lv_obj_add_style(btns[0].btn, &btn_sel, LV_STATE_FOCUSED);
     lv_obj_add_style(btns[0].btn, &btn_press, LV_STATE_PRESSED);
+    btns[0].state = 0;
 
-    lv_obj_set_pos(btns[0].btn, 40, 40);
-    lv_obj_set_size(btns[0].btn, 200, 40);
+    lv_obj_set_pos(btns[0].btn, 10, 40);
+    lv_obj_set_size(btns[0].btn, 130, 40);
 
     lv_obj_t* label = lv_label_create(btns[0].btn);
 
@@ -89,51 +90,86 @@ static void draw_water_screen(int active_screen)
     lv_obj_align(label, LV_ALIGN_LEFT_MID, 0, 0);
     //lv_obj_add_state(btns[0].btn, LV_STATE_FOCUSED);
 
-    led_act0 = lv_led_create(btns[0].btn);
-    lv_obj_align(led_act0, LV_ALIGN_RIGHT_MID, 0, 0);
-    lv_led_set_brightness(led_act0, 255);
-    lv_led_set_color(led_act0, lv_color_hex(0x606060));
+    led_act[0] = lv_led_create(btns[0].btn);
+    lv_obj_align(led_act[0], LV_ALIGN_RIGHT_MID, 0, 0);
+    lv_led_set_brightness(led_act[0], 255);
+    lv_led_set_color(led_act[0], lv_color_hex(0x606060));
 
     btns[1].btn = lv_btn_create(water_scr);
     lv_obj_add_style(btns[1].btn, &btn_norm, 0);
     lv_obj_add_style(btns[1].btn, &btn_sel, LV_STATE_FOCUSED);
     lv_obj_add_style(btns[1].btn, &btn_press, LV_STATE_PRESSED);
+    btns[1].state = 0;
 
-    lv_obj_set_pos(btns[1].btn, 40, 110);
-    lv_obj_set_size(btns[1].btn, 200, 40);
+    lv_obj_set_pos(btns[1].btn, 180, 40);
+    lv_obj_set_size(btns[1].btn, 130, 40);
 
     label = lv_label_create(btns[1].btn);
 
     lv_label_set_text(label, "Zona 2");
     lv_obj_align(label, LV_ALIGN_LEFT_MID, 0, 0);
-    btns[1].state = 0;
 
-    led_act1 = lv_led_create(btns[1].btn);
-    lv_obj_align(led_act1, LV_ALIGN_RIGHT_MID, 0, 0);
-    lv_led_set_brightness(led_act1, 255);
-    lv_led_set_color(led_act1, lv_color_hex(0x606060));
+
+    led_act[1] = lv_led_create(btns[1].btn);
+    lv_obj_align(led_act[1], LV_ALIGN_RIGHT_MID, 0, 0);
+    lv_led_set_brightness(led_act[1], 255);
+    lv_led_set_color(led_act[1], lv_color_hex(0x606060));
 
     btns[2].btn = lv_btn_create(water_scr);
     lv_obj_add_style(btns[2].btn, &btn_norm, 0);
     lv_obj_add_style(btns[2].btn, &btn_sel, LV_STATE_FOCUSED);
     lv_obj_add_style(btns[2].btn, &btn_press, LV_STATE_PRESSED);
-    lv_obj_set_pos(btns[2].btn, 260, 190);
-    lv_obj_set_size(btns[2].btn, 45, 25);
+    btns[2].state = 0;
+
+    lv_obj_set_pos(btns[2].btn, 10, 120);
+    lv_obj_set_size(btns[2].btn, 130, 40);
 
     label = lv_label_create(btns[2].btn);
+
+    lv_label_set_text(label, "Zona 3");
+    lv_obj_align(label, LV_ALIGN_LEFT_MID, 0, 0);
+
+
+    led_act[2] = lv_led_create(btns[2].btn);
+    lv_obj_align(led_act[2], LV_ALIGN_RIGHT_MID, 0, 0);
+    lv_led_set_brightness(led_act[2], 255);
+    lv_led_set_color(led_act[2], lv_color_hex(0x606060));
+
+    btns[3].btn = lv_btn_create(water_scr);
+    lv_obj_add_style(btns[3].btn, &btn_norm, 0);
+    lv_obj_add_style(btns[3].btn, &btn_sel, LV_STATE_FOCUSED);
+    lv_obj_add_style(btns[3].btn, &btn_press, LV_STATE_PRESSED);
+    btns[3].state = 0;
+
+    lv_obj_set_pos(btns[3].btn, 180, 120);
+    lv_obj_set_size(btns[3].btn, 130, 40);
+
+    label = lv_label_create(btns[3].btn);
+
+    lv_label_set_text(label, "Zona 4");
+    lv_obj_align(label, LV_ALIGN_LEFT_MID, 0, 0);
+
+
+    led_act[3] = lv_led_create(btns[3].btn);
+    lv_obj_align(led_act[3], LV_ALIGN_RIGHT_MID, 0, 0);
+    lv_led_set_brightness(led_act[3], 255);
+    lv_led_set_color(led_act[3], lv_color_hex(0x606060));
+
+
+    btns[4].btn = lv_btn_create(water_scr);
+    lv_obj_add_style(btns[4].btn, &btn_norm, 0);
+    lv_obj_add_style(btns[4].btn, &btn_sel, LV_STATE_FOCUSED);
+    lv_obj_add_style(btns[4].btn, &btn_press, LV_STATE_PRESSED);
+    lv_obj_set_pos(btns[4].btn, 260, 190);
+    lv_obj_set_size(btns[4].btn, 45, 25);
+    btns[4].state = 0;
+
+    label = lv_label_create(btns[4].btn);
     lv_label_set_text(label, "<<");
     lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
-    if(active_screen == 0)
-    	{
-    	btns[0].state = 1;
-    	lv_obj_add_state(btns[0].btn, LV_STATE_FOCUSED);
-    	}
-    else if(active_screen == 1)
-    	{
-    	btns[1].state = 1;
-    	lv_obj_add_state(btns[1].btn, LV_STATE_FOCUSED);
-    	}
 
+    btns[active_screen].state = 1;
+    lv_obj_add_state(btns[active_screen].btn, LV_STATE_FOCUSED);
 
     lv_scr_load_anim(water_scr, LV_SCR_LOAD_ANIM_MOVE_LEFT, 100, 0, true);
     gpio_set_level(LCD_BK_LIGHT, LCD_BK_LIGHT_ON_LEVEL);
@@ -144,7 +180,7 @@ int do_water_screen(int active_screen)
 	msg_t msg;
 	char buf[10];
 	int p_state, p_status, p_current, p_current_lim, p_min_pres, p_max_pres, p_press;
-	int i, kesc = 0, nbuttons = 3, ret = 0;
+	int i, kesc = 0, nbuttons = 5, ret = 0;
 	//saved_pump_state = saved_pump_status = saved_pump_pressure_kpa = -1;
 	//saved_pump_current = -5;
 	draw_water_screen(active_screen);
@@ -157,17 +193,15 @@ int do_water_screen(int active_screen)
 		i = handle_ui_key(watch, btns, nbuttons);
 		if(i == KEY_PRESS_SHORT)
 			{
-			if(btns[2].state == 1)
+			if(btns[4].state == 1)
 				break;
-			else if(btns[0].state == 1)
+			for(i = 0; i < nbuttons - 1; i++)
 				{
-				ret = do_water_screen_z(0);
-				draw_water_screen(0);
-				}
-			else if(btns[1].state == 1)
-				{
-				ret = do_water_screen_z(1);
-				draw_water_screen(1);
+				if(btns[i].state == 1)
+					{
+					do_water_screen_z(i);
+					draw_water_screen(i);
+					}
 				}
 			}
 		}

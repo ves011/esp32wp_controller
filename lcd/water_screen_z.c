@@ -62,7 +62,7 @@ static void draw_water_screen_z(int zone)
     lv_obj_set_size(watch, 120, 20);
     time(&now);
     localtime_r(&now, &timeinfo);
-    sprintf(buf, "%02d:%02d - %02d.%02d.%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_mday, (timeinfo.tm_mon + 1), (timeinfo.tm_year % 100));
+    sprintf(buf, "%02d:%02d - %02d.%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_mday, (timeinfo.tm_mon + 1));
     lv_label_set_text(watch, buf);
 
     lv_obj_t* l_title = lv_label_create(water_scr_0);

@@ -28,6 +28,7 @@
 #include "common_defines.h"
 #include "lvgl.h"
 #include "external_defs.h"
+#include "boot_screen.h"
 #include "main_screen.h"
 #include "pump_screen.h"
 #include "water_screen.h"
@@ -161,10 +162,11 @@ static void lvgl_task(void *pvParameters)
 
 static void ui_task(void *pvParameters)
 	{
-	int ret;
 	active_screen = PUMP_SCREEN;
 	while(1)
 		{
+		if(!controller_op_registered)
+			do_boot_screen();
 		do_main_screen(active_screen);
 		}
 	}
@@ -271,7 +273,7 @@ void lcd_init(void)
     lv_style_set_translate_y(&btn_sel, 5);
     lv_style_set_shadow_ofs_y(&btn_sel, 10);
     lv_style_set_shadow_ofs_x(&btn_sel, 10);
-    lv_style_set_text_color(&btn_sel, lv_color_hex(0xffff00));
+    lv_style_set_text_color(&btn_sel, lv_color_hex(0xffc040));
     lv_style_set_text_font(&btn_sel, &seg_black_20);
 
     /*Add a transition to the outline*/
