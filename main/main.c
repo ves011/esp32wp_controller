@@ -1,10 +1,5 @@
-/* Hello World Example
-
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
+/*
+ * water and pump controller main.c
 */
 #include <stdio.h>
 #include "sdkconfig.h"
@@ -48,8 +43,6 @@
 #include "waterop.h"
 #include "lcd.h"
 
-//#include "driver/adc.h"
-//#include "esp_adc_cal.h"
 #include "external_defs.h"
 
 #define TAG "ctrl_dev"
@@ -59,7 +52,6 @@
 
 #include "wifi_credentials.h"
 
-//TaskHandle_t ntp_sync_task_handle;
 
 int console_state;
 int restart_in_progress;
@@ -84,27 +76,6 @@ static void initialize_nvs(void)
 		}
 	ESP_ERROR_CHECK(err);
 	}
-/*
-#if CONFIG_STORE_HISTORY
-	#define MOUNT_PATH "/data"
-	#define HISTORY_PATH MOUNT_PATH "/history.txt"
-	static void initialize_filesystem(void)
-		{
-		static wl_handle_t wl_handle;
-		const esp_vfs_fat_mount_config_t mount_config =
-			{
-			.max_files = 4,
-			.format_if_mount_failed = true
-			};
-		esp_err_t err = esp_vfs_fat_spiflash_mount(MOUNT_PATH, "storage", &mount_config, &wl_handle);
-		if (err != ESP_OK)
-			{
-			ESP_LOGE(TAG, "Failed to mount FATFS (%d/%s)", err, esp_err_to_name(err));
-			return;
-			}
-		}
-#endif // CONFIG_STORE_HISTORY
-*/
 
 void app_main(void)
 	{
@@ -137,12 +108,12 @@ void app_main(void)
     gpio_config(&io_conf);
     ESP_LOGI(TAG, "app main 1");
     /*
-     * if BOOT_CTRL_PIN is 0 at boot restart with esp32_ota
+     * if BOOT_CTRL_PIN is bp_val at boot restart with esp32_ota
      */
     if(gpio_get_level(bp_ctrl) == bp_val)
     	{
-    	msg.val = 10;
-    	xQueueSend(ui_cmd_q, &msg, 0);
+    	//msg.val = 10;
+    	//xQueueSend(ui_cmd_q, &msg, 0);
     	ESP_LOGI(TAG, "app main 1:1");
     	const esp_partition_t *sbp = NULL;;
     	esp_partition_iterator_t pit = esp_partition_find(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_ANY, NULL);
@@ -164,14 +135,7 @@ void app_main(void)
     		}
     	}
 	gpio_reset_pin(bp_ctrl);
-	/*
-	ui_cmd_q = xQueueCreate(10, sizeof(msg_t));
-	if(!ui_cmd_q)
-		{
-		ESP_LOGE(TAG, "Unable to create UI cmd queue");
-		esp_restart();
-		}
-	*/
+
 	lcd_init();
 	restart_in_progress = 0;
 	controller_op_registered = 0;
@@ -187,7 +151,13 @@ void app_main(void)
 	rw_params(PARAM_READ, PARAM_CONSOLE, &console_state);
 	tsync = 0;
 	wifi_join(DEFAULT_SSID, DEFAULT_PASS, JOIN_TIMEOUT_MS);
-	esp_wifi_set_ps(WIFI_PS_MAX_MODEM);
+
+	// *
+	// * the line below is required to make interrupts on gpio 36,39 to work properly
+	// * https://github.com/espressif/esp-idf/issues/4585
+	// *
+	esp_wifi_set_ps(WIFI_PS_NONE);
+	//--------------------------------------------------------------------------//
 	msg.val = 1;
     xQueueSend(ui_cmd_q, &msg, 0);
 	tcp_log_init();

@@ -41,6 +41,10 @@
 
 #define INACTIVITY_TIME	30000000		//msec of inactivity
 
+#define LEDON		lv_color_hex(0xf0f040)
+#define LEDOFF		lv_color_hex(0x606060)
+#define LEDFAULT	lv_color_hex(0xff4040)
+
 typedef struct
     {
     lv_obj_t *btn;

@@ -878,7 +878,7 @@ void pump_mon_task(void *pvParameters)
 				{
 				sprintf(msg, "%d\1%d\1%d\1%d\1%d\1%d\1%d", pump_state, pump_status, pump_current, pump_pressure_kpa, stdev_c, stdev_p, qmeter_pc_sec);
 				publish_monitor(msg, 1, 0);
-				ESP_LOGI(TAG, "Pump state running:%d, pressure:%d(kPa), current:%d(mA), debit:%d, loop:%lu", pump_state, pump_pressure_kpa, pump_current, qmeter_pc_sec, loop);
+				//ESP_LOGI(TAG, "Pump state running:%d, pressure:%d(kPa), current:%d(mA), debit:%d, loop:%lu", pump_state, pump_pressure_kpa, pump_current, qmeter_pc_sec, loop);
 				saved_pump_state = pump_state;
 				saved_pump_status = pump_status;
 				saved_pump_current = pump_current;
