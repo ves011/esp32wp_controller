@@ -38,6 +38,8 @@
 #define LIMITS_FILE				"pump_limits.txt"
  /** Name of the file storing pump status: online | offline */
 #define OPERATIONAL_FILE		"pump_status.txt"
+/** file storing qmeter calibration a, b : q = (f + a) / b */
+#define QCAL_FILE				"qcal.txt"
 
 #define DEFAULT_PRES_MIN_LIMIT		300
 #define DEFAULT_PRES_MAX_LIMIT		370

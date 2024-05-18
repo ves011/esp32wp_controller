@@ -22,6 +22,7 @@
 #include "esp_netif.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "sys/stat.h"
 #include "esp_spiffs.h"
 #include "mqtt_client.h"
 #include "common_defines.h"
@@ -45,7 +46,7 @@
 #if ACTIVE_CONTROLLER == PUMP_CONTROLLER ||	ACTIVE_CONTROLLER == WP_CONTROLLER
 static SemaphoreHandle_t pumpop_mutex;
 
-int pump_min_lim, pump_max_lim, pump_pressure_kpa;
+int pump_min_lim, pump_max_lim, pump_pressure_kpa, pump_debit;
 static volatile int pump_state, pump_status, pump_current, kpa0_offset, pump_current_limit, psensor_mv, void_run_count;
 static TaskHandle_t pump_task_handle;
 
@@ -56,7 +57,9 @@ uint32_t overp_time_limit = 10;
 
 static gptimer_handle_t qmeter_timer;
 static int qmeter_pc, qmeter_pc_sec;
-static uint64_t qmeter_ts;
+static uint64_t qmeter_ts, last_qmeter_ts;
+static int total_qwater;
+static int qcal_a, qcal_b;
 
 
 static const char *TAG = "PUMP OP";
@@ -64,6 +67,7 @@ static QueueHandle_t pump_cmd_queue = NULL;
 
 static uint32_t testModeCurrent, testModePress;
 uint32_t loop;
+static int read_qcal();
 
 		/**
  * @brief pump command and parameters
@@ -423,6 +427,7 @@ void get_pump_values(int *p_state, int *p_status, int *p_current, int *p_current
 	*p_min_pres = pump_min_lim;
 	*p_max_pres = pump_max_lim;
 	*p_press = pump_pressure_kpa;
+	*p_debit = pump_debit;
 	}
 int start_pump(int from)
 	{
@@ -736,7 +741,9 @@ void register_pumpop()
     	};
     ESP_ERROR_CHECK(esp_console_cmd_register(&pumpop_cmd));
     get_pump_state();
+    qmeter_ts = last_qmeter_ts = 0;
     config_qmeter_timer();
+    read_qcal();
 
     xTaskCreate(pump_mon_task, "pump_task", 8192, NULL, 5, &pump_task_handle);
 	if(!pump_task_handle)
@@ -749,8 +756,7 @@ void register_pumpop()
 void pump_mon_task(void *pvParameters)
 	{
 	minmax_t min[10], max[10];
-	int saved_pump_state = -1, saved_pump_status = -1, saved_pump_current = -1, saved_pump_pressure_kpa = -1, saved_qmeter_pc_sec = -1;
-	uint64_t saved_qmeter_ts = 0;
+	int saved_pump_state = -1, saved_pump_status = -1, saved_pump_current = -1, saved_pump_pressure_kpa = -1, saved_qmeter_pc_sec = -1, saved_total_qwater = -1;
 	char msg[80];
 	msg_t msg_ui;
 	uint32_t pcount = 20, void_run = 0;
@@ -874,16 +880,18 @@ void pump_mon_task(void *pvParameters)
 				pump_status != saved_pump_status ||
 					pump_current != saved_pump_current ||
 						pump_pressure_kpa != saved_pump_pressure_kpa ||
-							saved_qmeter_pc_sec != qmeter_pc_sec)
+							saved_qmeter_pc_sec != qmeter_pc_sec ||
+								saved_total_qwater != total_qwater)
 				{
-				sprintf(msg, "%d\1%d\1%d\1%d\1%d\1%d\1%d", pump_state, pump_status, pump_current, pump_pressure_kpa, stdev_c, stdev_p, qmeter_pc_sec);
+				sprintf(msg, "%d\1%d\1%d\1%d\1%d\1%d\1%d\1%d", pump_state, pump_status, pump_current, pump_pressure_kpa, stdev_c, stdev_p, qmeter_pc_sec, total_qwater/60);
 				publish_monitor(msg, 1, 0);
-				//ESP_LOGI(TAG, "Pump state running:%d, pressure:%d(kPa), current:%d(mA), debit:%d, loop:%lu", pump_state, pump_pressure_kpa, pump_current, qmeter_pc_sec, loop);
+				//ESP_LOGI(TAG, "Pump state running:%d, pressure:%d(kPa), current:%d(mA), debit:%d, q_water:%d, loop:%lu", pump_state, pump_pressure_kpa, pump_current, qmeter_pc_sec, total_qwater/60, loop);
 				saved_pump_state = pump_state;
 				saved_pump_status = pump_status;
 				saved_pump_current = pump_current;
 				saved_pump_pressure_kpa = pump_pressure_kpa;
 				saved_qmeter_pc_sec = qmeter_pc_sec;
+				saved_total_qwater = total_qwater;
 				msg_ui.source = PUMP_VAL_CHANGE;
 				xQueueSend(ui_cmd_q, &msg_ui, 0);
 				}
@@ -897,16 +905,45 @@ void pump_mon_task(void *pvParameters)
 			}
 		else
 			{
-			pcount = 10;
+			if(qmeter_ts - last_qmeter_ts >  0)
+				{
+				last_qmeter_ts = qmeter_ts;
+				pump_debit = (qmeter_pc_sec + qcal_a) / qcal_b;
+				total_qwater = total_qwater + (qmeter_ts - last_qmeter_ts) * pump_debit;
+
+				}
+			pcount = 20;
 			vTaskDelay(100 / portTICK_PERIOD_MS);
 			}
 		loop++;
-		if(saved_qmeter_ts != qmeter_ts)
+		}
+	}
+static int read_qcal()
+	{
+	int ret = ESP_OK;
+	struct stat st;
+	char bufr[64];
+	qcal_a = 0;
+	qcal_b = 1;
+	if (stat(BASE_PATH"/"QCAL_FILE, &st) != 0)
+		{
+		// file does no exists
+		ESP_LOGI(TAG, "Calibration file for q-meter does not exist");
+		ret = ESP_FAIL;
+		}
+	else
+		{
+		FILE *f = fopen(BASE_PATH"/"QCAL_FILE, "r");
+		if (f != NULL)
 			{
-			saved_qmeter_ts = qmeter_ts;
-			//ESP_LOGI(TAG, "qmeter ts: %llu / %d", saved_qmeter_ts, qmeter_pc_sec);
+			fgets(bufr, 60, f);
+			sscanf(bufr, "%d %d", &qcal_a, &qcal_b);
+			fclose(f);
+			ESP_LOGI(TAG, "qcal_a = %d, qcal_b = %d", qcal_a, qcal_b);
 			}
 		}
+
+	return ret;
 	}
 
 #if 0
