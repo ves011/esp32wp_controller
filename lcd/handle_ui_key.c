@@ -44,10 +44,11 @@ int handle_ui_key(lv_obj_t *watch, btn_main_t *btns, int nbuttons)
 			{
 			if (msg.source & K_ROT) //rot left or right
 				{
+				//ESP_LOGI("UI KEY", "rot %lu, %d, %d", msg.val, b_light, k_act);
 				if(k_act == 0)
 					{
 					k_act = 1;
-					if(b_light == LCD_BK_LIGHT_OFF_LEVEL)
+					//if(b_light == LCD_BK_LIGHT_OFF_LEVEL)
 						{
 						gpio_set_level(LCD_BK_LIGHT, LCD_BK_LIGHT_ON_LEVEL);
 						b_light = LCD_BK_LIGHT_ON_LEVEL;
@@ -69,11 +70,13 @@ int handle_ui_key(lv_obj_t *watch, btn_main_t *btns, int nbuttons)
 							break;
 							}
 						}
+					/*
 					if (i == nbuttons)
 						{
 						lv_obj_add_state(btns[0].btn, LV_STATE_FOCUSED);
 						btns[0].state = 1;
 						}
+						*/
 					}
 				else if(msg.val == K_ROT_LEFT)
 					{
@@ -92,11 +95,13 @@ int handle_ui_key(lv_obj_t *watch, btn_main_t *btns, int nbuttons)
 							break;
 							}
 						}
+					/*
 					if (i < 0)
 						{
 						lv_obj_add_state(btns[nbuttons - 1].btn, LV_STATE_FOCUSED);
 						btns[nbuttons - 1].state = 1;
 						}
+						*/
 					}
 				}
 			if(msg.source & K_KEY)
@@ -200,6 +205,11 @@ int handle_ui_key(lv_obj_t *watch, btn_main_t *btns, int nbuttons)
 				{
 				kesc = 1;
 				ret = WATER_OP_ERROR;
+				}
+			if(msg.source == WATER_DV_OP)
+				{
+				kesc = 1;
+				ret = WATER_DV_OP;
 				}
 			}
 		}

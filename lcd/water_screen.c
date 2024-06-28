@@ -25,6 +25,7 @@
 #include "esp_lcd_ili9341.h"
 #include <time.h>
 #include <sys/time.h>
+#include "waterop.h"
 #include "common_defines.h"
 #include "external_defs.h"
 #include "lvgl.h"
@@ -47,6 +48,7 @@ static void draw_water_screen(int active_screen)
     time_t now = 0;
     char buf[28];
     struct tm* timeinfo;
+    int dvstate[DVCOUNT];
 
     lv_style_init(&cell_style);
     lv_style_reset(&cell_style);
@@ -93,7 +95,7 @@ static void draw_water_screen(int active_screen)
     led_act[0] = lv_led_create(btns[0].btn);
     lv_obj_align(led_act[0], LV_ALIGN_RIGHT_MID, 0, 0);
     lv_led_set_brightness(led_act[0], 255);
-    lv_led_set_color(led_act[0], lv_color_hex(0x606060));
+    lv_led_set_color(led_act[0], LEDOFF);
 
     btns[1].btn = lv_btn_create(water_scr);
     lv_obj_add_style(btns[1].btn, &btn_norm, 0);
@@ -113,7 +115,7 @@ static void draw_water_screen(int active_screen)
     led_act[1] = lv_led_create(btns[1].btn);
     lv_obj_align(led_act[1], LV_ALIGN_RIGHT_MID, 0, 0);
     lv_led_set_brightness(led_act[1], 255);
-    lv_led_set_color(led_act[1], lv_color_hex(0x606060));
+    lv_led_set_color(led_act[1], LEDOFF);
 
     btns[2].btn = lv_btn_create(water_scr);
     lv_obj_add_style(btns[2].btn, &btn_norm, 0);
@@ -133,7 +135,7 @@ static void draw_water_screen(int active_screen)
     led_act[2] = lv_led_create(btns[2].btn);
     lv_obj_align(led_act[2], LV_ALIGN_RIGHT_MID, 0, 0);
     lv_led_set_brightness(led_act[2], 255);
-    lv_led_set_color(led_act[2], lv_color_hex(0x606060));
+    lv_led_set_color(led_act[2], LEDOFF);
 
     btns[3].btn = lv_btn_create(water_scr);
     lv_obj_add_style(btns[3].btn, &btn_norm, 0);
@@ -153,7 +155,7 @@ static void draw_water_screen(int active_screen)
     led_act[3] = lv_led_create(btns[3].btn);
     lv_obj_align(led_act[3], LV_ALIGN_RIGHT_MID, 0, 0);
     lv_led_set_brightness(led_act[3], 255);
-    lv_led_set_color(led_act[3], lv_color_hex(0x606060));
+    lv_led_set_color(led_act[3], LEDOFF);
 
 
     btns[4].btn = lv_btn_create(water_scr);
@@ -168,6 +170,17 @@ static void draw_water_screen(int active_screen)
     lv_label_set_text(label, "<<");
     lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
 
+    get_water_dv_state(dvstate);
+	for(int i = 0; i < DVCOUNT; i++)
+		{
+		if(dvstate[i] == DVOPEN)
+			lv_led_set_color(led_act[i], LEDON);
+		else if(dvstate[i] == DVCLOSE)
+			lv_led_set_color(led_act[i], LEDOFF);
+		else
+			lv_led_set_color(led_act[i], LEDFAULT);
+		}
+
     btns[active_screen].state = 1;
     lv_obj_add_state(btns[active_screen].btn, LV_STATE_FOCUSED);
 
@@ -177,32 +190,61 @@ static void draw_water_screen(int active_screen)
 
 int do_water_screen(int active_screen)
 	{
-	msg_t msg;
-	char buf[10];
-	int p_state, p_status, p_current, p_current_lim, p_min_pres, p_max_pres, p_press;
-	int i, kesc = 0, nbuttons = 5, ret = 0;
+
+	int i, lt = 0, key, active_but = 0, nbuttons = 5;
+	int dvstate[DVCOUNT] = {0};
 	//saved_pump_state = saved_pump_status = saved_pump_pressure_kpa = -1;
 	//saved_pump_current = -5;
 	draw_water_screen(active_screen);
 	k_act = 1;
 	xQueueReset(ui_cmd_q);
-	//msg.source = PUMP_VAL_CHANGE;
-	//xQueueSend(ui_cmd_q, &msg, 0);
+	msg_t msg;
+	msg.source = WATER_VAL_CHANGE;
+	xQueueSend(ui_cmd_q, &msg, 0);
 	while(1)
 		{
-		i = handle_ui_key(watch, btns, nbuttons);
-		if(i == KEY_PRESS_SHORT)
+		key = handle_ui_key(watch, btns, nbuttons);
+		if(key == KEY_PRESS_SHORT)
 			{
 			if(btns[4].state == 1)
 				break;
+			/*
 			for(i = 0; i < nbuttons - 1; i++)
 				{
 				if(btns[i].state == 1)
 					{
-					do_water_screen_z(i);
-					draw_water_screen(i);
+					//do_water_screen_z(i);
+					//draw_water_screen(i);
+					break;
 					}
 				}
+				*/
+			}
+		else if(key == KEY_PRESS_LONG)
+			{
+			for(i = 0; i < nbuttons - 1; i++)
+				{
+				if(btns[i].state == 1)
+					{
+					active_but = i;
+					msg.val = active_but;
+					if(dvstate[i] == DVCLOSE)
+						msg.source = DVOPEN;
+					else
+						msg.source = DVCLOSE;
+					xQueueSend(water_cmd_q, &msg, 0);
+					lt = 0;
+					break;
+					}
+				}
+			}
+		if(key == WATER_DV_OP)
+			{
+			lt = 1 - lt;
+			if(lt)
+				lv_led_set_color(led_act[active_but], LEDON);
+			else
+				lv_led_set_color(led_act[active_but], LEDOFF);
 			}
 		}
 	return WATER_SCREEN;

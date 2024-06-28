@@ -44,7 +44,6 @@
 #define DEFAULT_PRES_MIN_LIMIT		300
 #define DEFAULT_PRES_MAX_LIMIT		370
 #define DEFAULT_PUMP_CURRENT_LIMIT	5000
-#define DEFAULT_STDEV				20
 #define DEFAULT_OVERP_TIME_LIMIT	10
 #define DEFAULT_VOID_RUN_COUNT		20
 
@@ -68,14 +67,10 @@ typedef struct
 	uint32_t min_val;			/*!< min pressure limit										*/
 	uint32_t max_val;			/*!< max pressure limit										*/
 	uint32_t faultc;			/*!< max acceptable current when pump running (mA)			*/
-	uint32_t stdev;				/*!< max acceptable stdev for pressure measurements
-										below this limit the measurement is OK
-										above this limit measurement is rejected: too noisy	*/
 	uint32_t overp_lim;			/*!< how long the pressure needs to be above max_val before the pump to be stopped (sec) */
 	uint32_t void_run_count;	/*!< how many 10secs on/off cycles allowed before turning the pump offline */
 	} pump_limits_t;
 
-extern int pump_pres_stdev;
 
 /**
  * @brief dispatch pump commands based on arguments
@@ -111,7 +106,7 @@ int set_pump_0_offset(void);
 int pump_operational(int po);
 void pump_mon_task(void *pvParameters);
 void process_adc_current(minmax_t *min, minmax_t *max);
-void get_pump_values(int *p_state, int *p_status, int *p_current, int *p_current_lim, int *p_min_pres, int *p_max_pres, int *p_press);
+void get_pump_values(int *p_state, int *p_status, int *p_current, int *p_current_lim, int *p_min_pres, int *p_max_pres, int *p_press, int *p_debit);
 
 
 #endif /* PUMP_OP_PUMPOP_H_ */

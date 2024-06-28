@@ -12,7 +12,7 @@
 #define DV1						1
 #define DV2						2
 #define DV3						3
-#define DVCOUNT					2
+#define DVCOUNT					4
 #define WATERDAY				2
 
 /*
@@ -30,8 +30,9 @@
 	//#define PINMOT_B2				(11)
 	#define PINSENSE_MOT			(4)
 */
-	#define CURRENT_OFF_LIM			20
-	#define CURRENT_OFF_COUNT		3
+	#define DV_CURRENT_OFF_LIM			20
+	#define DV_CURRENT_OFF_COUNT		3
+	#define DV_CURRENT FAULT			200
 
 
 #define WATER_OFF				0
@@ -102,7 +103,6 @@ typedef struct
 	uint8_t dvno;
 	uint8_t pin_enable;
 	uint8_t state;
-	uint16_t off_current;
 	} dvconfig_t;
 
 typedef struct
@@ -112,9 +112,15 @@ typedef struct
 	int startm;
 	int stoph;
 	int stopm;
+	struct tm eff_start;
+	struct tm eff_stop;
 	int cs;
 	int fault;
 	int qwater;
+	struct tm last_start;
+	struct tm last_stop;
+	int last_cs;
+	int last_fault;
 	} w_prog_t;
 
 typedef struct
@@ -125,6 +131,7 @@ typedef struct
 			w_prog_t w_prog[2];
 			} p[DVCOUNT];
 		} dvprogram_t;
+		/*
 typedef struct
 	{
 	int year;
@@ -150,12 +157,16 @@ typedef struct
 	last_no_status_t last_no_b[2];
 	last_no_status_t last_no_e[2];
 	}last_status2_t;
-
+*/
 int do_dvop(int argc, char **argv);
 void register_waterop(void);
 void get_dv_current(int *dv_current, int *stdev);
 void parse_devstr(int argc, char **argv);
-void get_water_values(last_status2_t *lst, dvprogram_t *dvprog);
+//void get_water_values(last_status2_t *lst, dvprogram_t *dvprog, int *dvstate);
+void get_water_values(dvprogram_t *dvprog, int *dvstate);
+void get_water_dv_state(int *dvstate);
 int open_dv(int dvnum);
+int close_dv(int dvnum);
+//void get_act_state(int dvnum);
 
 #endif /* WATER_OP_WATEROP_H_ */

@@ -41,6 +41,7 @@
 #ifdef ADC_AD7811
 	#include "ad7811.h"
 #endif
+#include "waterop.h"
 #include "pumpop.h"
 
 #if ACTIVE_CONTROLLER == PUMP_CONTROLLER ||	ACTIVE_CONTROLLER == WP_CONTROLLER
@@ -50,10 +51,8 @@ int pump_min_lim, pump_max_lim, pump_pressure_kpa, pump_debit;
 static volatile int pump_state, pump_status, pump_current, kpa0_offset, pump_current_limit, psensor_mv, void_run_count;
 static TaskHandle_t pump_task_handle;
 
-int pump_pres_stdev;
-int stdev_c, stdev_p;
 static time_t start_overp_time;
-uint32_t overp_time_limit = 10;
+int overp_time_limit = 10;
 
 static gptimer_handle_t qmeter_timer;
 static int qmeter_pc, qmeter_pc_sec;
@@ -78,7 +77,6 @@ static struct
     struct arg_int *minP;
     struct arg_int *maxP;
     struct arg_int *faultC;
-    struct arg_int *stdev;
     struct arg_int *overpt;
 	struct arg_int *vrc;
     struct arg_end *end;
@@ -340,11 +338,11 @@ int get_pump_state(void)
     	{
     	kpa0_offset = 0;
     	}
+    read_qcal();
    	rw_params(PARAM_READ, PARAM_LIMITS, &plimits);
    	pump_min_lim = plimits.min_val;
 	pump_max_lim = plimits.max_val;
 	pump_current_limit = plimits.faultc;
-	pump_pres_stdev = plimits.stdev;
 	overp_time_limit = plimits.overp_lim;
 	void_run_count = plimits.void_run_count;
 
@@ -398,19 +396,16 @@ int get_pump_state(void)
 running state\t\t= %5d\n \
 Operational state\t\t= %s\n \
 pressure (kPa/mV)        = %5d/%5d\n \
-stdev current            = %5d\n \
-stdev pressure           = %5d\n \
 min pressure (kPa)       = %5d\n \
 max pressure (kPa)       = %5d\n \
 fault current limit (mA) = %5d\n \
 0 kPa offset (mV)        = %5d\n \
 current (mA)             = %5d\n \
-max STDEV                = %5d\n \
-timeout P max (sec)      = %5lu\n \
+timeout P max (sec)      = %5d\n \
 short run count          = %5d\n",
-			pump_state, opstate, pump_pressure_kpa, psensor_mv, stdev_c, stdev_p, pump_min_lim, pump_max_lim, pump_current_limit, kpa0_offset, pump_current, pump_pres_stdev, overp_time_limit, void_run_count);
-	sprintf(msg, "%d\1%d\1%d\1%d\1%d\1%d\1%d\1%d\1%d\1%lu\1%d\1%d\1%d",
-			pump_state, pump_status, pump_current, pump_pressure_kpa, kpa0_offset, pump_min_lim, pump_max_lim, pump_current_limit, pump_pres_stdev, overp_time_limit, stdev_c, stdev_p, void_run_count);
+			pump_state, opstate, pump_pressure_kpa, psensor_mv, pump_min_lim, pump_max_lim, pump_current_limit, kpa0_offset, pump_current, overp_time_limit, void_run_count);
+	sprintf(msg, "%s\1%d\1%d\1%d\1%d\1%d\1%d\1%d\1%d\1%d\1%d",
+			PUMP_STATE, pump_state, pump_status, pump_current, pump_pressure_kpa, kpa0_offset, pump_min_lim, pump_max_lim, pump_current_limit, overp_time_limit, void_run_count);
 	publish_state(msg, 1, 0);
 	msg_t msg_ui;
 	msg_ui.source = PUMP_VAL_CHANGE;
@@ -418,7 +413,7 @@ short run count          = %5d\n",
     return ret;
     }
 
-void get_pump_values(int *p_state, int *p_status, int *p_current, int *p_current_lim, int *p_min_pres, int *p_max_pres, int *p_press)
+void get_pump_values(int *p_state, int *p_status, int *p_current, int *p_current_lim, int *p_min_pres, int *p_max_pres, int *p_press, int *p_debit)
 	{
 	*p_state = pump_state;
 	*p_status = pump_status;
@@ -537,35 +532,6 @@ int pump_operational(int po)
 			{
 			ESP_LOGI(TAG, "Operational status could not be updated: current value: %d", pump_status);
 			}
-		/*
-		if(xSemaphoreTake(pumpop_mutex, ( TickType_t ) 100 )) // 1 sec wait
-    		{
-			//pump_status = po;
-			if(po == PUMP_OFFLINE)
-				{
-				ret = stop_pump(1);
-				if(ret == ESP_OK)
-					pump_status = po;
-				}
-			else if(po == PUMP_ONLINE)
-				{
-				ret = start_pump(1);
-				if(ret == ESP_OK)
-					pump_status = po;
-				}
-			xSemaphoreGive(pumpop_mutex);
-			}
-		else
-			ret = ESP_FAIL;
-//		if(ret == ESP_OK) // update status in pump_status.txt
-			{
-			int local_ps = pump_status;
-			if(rw_params(PARAM_WRITE, PARAM_OPERATIONAL, &local_ps) != ESP_OK)
-				{
-				ESP_LOGI(TAG, "Operational status could not be updated: current value: %d", pump_status);
-				}
-			}
-			*/
 		}
 	return ret;
 	}
@@ -614,7 +580,7 @@ int set_pump_0_offset()
 
 int do_pumpop(int argc, char **argv)
 	{
-	uint32_t minp, maxp, fc, stdev, overpt, vrc;
+	uint32_t minp, maxp, fc, overpt, vrc;
 	int nerrors = arg_parse(argc, argv, (void **)&pumpop_args);
     if (nerrors != 0)
     	{
@@ -644,7 +610,6 @@ int do_pumpop(int argc, char **argv)
     	minp = pump_min_lim;
     	maxp = pump_max_lim;
     	fc = pump_current_limit;
-    	stdev = pump_pres_stdev;
     	overpt = overp_time_limit;
 		vrc = void_run_count;
     	if(pumpop_args.minP->count)
@@ -656,17 +621,12 @@ int do_pumpop(int argc, char **argv)
     			if(pumpop_args.faultC->count)
     				{
     				fc = pumpop_args.faultC->ival[0];
-    				if(pumpop_args.stdev->count)
-    					{
-    					stdev = pumpop_args.stdev->ival[0];
-    					if(pumpop_args.overpt->count)
-							{
-    						overpt = pumpop_args.overpt->ival[0];
-							if(pumpop_args.overpt->count)
-    							vrc = pumpop_args.vrc->ival[0];
-							}
-    					}
-
+   					if(pumpop_args.overpt->count)
+						{
+   						overpt = pumpop_args.overpt->ival[0];
+						if(pumpop_args.vrc->count)
+   							vrc = pumpop_args.vrc->ival[0];
+						}
     				}
     			}
     		}
@@ -676,7 +636,6 @@ int do_pumpop(int argc, char **argv)
     		plimits.max_val = maxp;
     		plimits.min_val = minp;
     		plimits.faultc = fc;
-    		plimits.stdev = stdev;
     		plimits.overp_lim = overpt;
 			plimits.void_run_count = vrc;
     		rw_params(PARAM_WRITE, PARAM_LIMITS, &plimits);
@@ -727,7 +686,6 @@ void register_pumpop()
 	pumpop_args.minP = arg_int0(NULL, NULL, "<min pressure (kPa)>", "at this pressure pump will start");
 	pumpop_args.maxP = arg_int0(NULL, NULL, "<max pressure (kPa)>", "at this pressure pump will stop");
 	pumpop_args.faultC = arg_int0(NULL, NULL, "<max current (mA))>", "at this current pump will stop");
-	pumpop_args.stdev = arg_int0(NULL, NULL, "<#>", "max accepted STDEV");
 	pumpop_args.overpt = arg_int0(NULL, NULL, "<#>", "timeout on max pressure");
 	pumpop_args.vrc = arg_int0(NULL, NULL, "<#>", "max # of short cycles");
 	pumpop_args.end = arg_end(1);
@@ -743,7 +701,6 @@ void register_pumpop()
     get_pump_state();
     qmeter_ts = last_qmeter_ts = 0;
     config_qmeter_timer();
-    read_qcal();
 
     xTaskCreate(pump_mon_task, "pump_task", 8192, NULL, 5, &pump_task_handle);
 	if(!pump_task_handle)
@@ -756,7 +713,7 @@ void register_pumpop()
 void pump_mon_task(void *pvParameters)
 	{
 	minmax_t min[10], max[10];
-	int saved_pump_state = -1, saved_pump_status = -1, saved_pump_current = -1, saved_pump_pressure_kpa = -1, saved_qmeter_pc_sec = -1, saved_total_qwater = -1;
+	int saved_pump_state = -1, saved_pump_status = -1, saved_pump_current = -1, saved_pump_pressure_kpa = -1, saved_pump_debit = -1, saved_total_qwater = -1;
 	char msg[80];
 	msg_t msg_ui;
 	uint32_t pcount = 20, void_run = 0;
@@ -880,17 +837,17 @@ void pump_mon_task(void *pvParameters)
 				pump_status != saved_pump_status ||
 					pump_current != saved_pump_current ||
 						pump_pressure_kpa != saved_pump_pressure_kpa ||
-							saved_qmeter_pc_sec != qmeter_pc_sec ||
+							saved_pump_debit != pump_debit ||
 								saved_total_qwater != total_qwater)
 				{
-				sprintf(msg, "%d\1%d\1%d\1%d\1%d\1%d\1%d\1%d", pump_state, pump_status, pump_current, pump_pressure_kpa, stdev_c, stdev_p, qmeter_pc_sec, total_qwater/60);
+				sprintf(msg, "%s\1%d\1%d\1%d\1%d\1%d\1%d", PUMP_STATE, pump_state, pump_status, pump_current, pump_pressure_kpa, pump_debit, total_qwater/60);
 				publish_monitor(msg, 1, 0);
-				//ESP_LOGI(TAG, "Pump state running:%d, pressure:%d(kPa), current:%d(mA), debit:%d, q_water:%d, loop:%lu", pump_state, pump_pressure_kpa, pump_current, qmeter_pc_sec, total_qwater/60, loop);
+				ESP_LOGI(TAG, "Pump state running:%d, pressure:%d(kPa), current:%d(mA), debit:%d, q_water:%d, loop:%lu", pump_state, pump_pressure_kpa, pump_current, pump_debit, total_qwater/60, loop);
 				saved_pump_state = pump_state;
 				saved_pump_status = pump_status;
 				saved_pump_current = pump_current;
 				saved_pump_pressure_kpa = pump_pressure_kpa;
-				saved_qmeter_pc_sec = qmeter_pc_sec;
+				saved_pump_debit = pump_debit;
 				saved_total_qwater = total_qwater;
 				msg_ui.source = PUMP_VAL_CHANGE;
 				xQueueSend(ui_cmd_q, &msg_ui, 0);

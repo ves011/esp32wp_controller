@@ -43,8 +43,7 @@ static int k_act = 0;
 static lv_obj_t *pump_scr;
 static lv_obj_t *led_online, *led_run, *l_press_min, *cpress, *l_pressm;
 static lv_obj_t *ccurrent, *l_current_max, *cdebit, *l_pump_state;
-static int saved_pump_state = -1, saved_pump_status = -1, saved_pump_current = -5, saved_pump_pressure_kpa = -1;
-int saved_current_lim = -1, saved_min_pres = -1, saved_max_pres = -1;
+
 
 //static const char *TAG = "P_SCR";
 
@@ -225,7 +224,9 @@ int do_pump_screen()
 	{
 	msg_t msg;
 	char buf[10];
-	int p_state, p_status, p_current, p_current_lim, p_min_pres, p_max_pres, p_press;
+	int saved_pump_state = -1, saved_pump_status = -1, saved_pump_current = -5, saved_pump_pressure_kpa = -1;
+	int saved_current_lim = -1, saved_min_pres = -1, saved_max_pres = -1;
+	int p_state, p_status, p_current, p_current_lim, p_min_pres, p_max_pres, p_press, p_debit;
 	int i, nbuttons = 2, ret = ESP_OK;
 	saved_pump_state = saved_pump_status = saved_pump_pressure_kpa = -1;
 	saved_pump_current = -5;
@@ -266,7 +267,7 @@ int do_pump_screen()
 			}
 		if(i == PUMP_VAL_CHANGE)
 			{
-			get_pump_values(&p_state, &p_status, &p_current, &p_current_lim, &p_min_pres, &p_max_pres, &p_press);
+			get_pump_values(&p_state, &p_status, &p_current, &p_current_lim, &p_min_pres, &p_max_pres, &p_press, &p_debit);
 			lv_label_set_text(l_pump_state, "OK");
 			lv_obj_set_style_text_color(l_pump_state, lv_color_hex(0x00ff00), 0);
 			if(p_state != saved_pump_state)

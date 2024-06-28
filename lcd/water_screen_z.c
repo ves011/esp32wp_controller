@@ -43,7 +43,7 @@ static btn_main_t btns[2];
 
 
 static int k_act = 0;
-static last_status2_t last_status[DVCOUNT];
+//static last_status2_t last_status[DVCOUNT];
 static dvprogram_t dv_program;
 
 extern int wpday;
@@ -181,10 +181,11 @@ int do_water_screen_z(int zone)
 	{
 	msg_t msg;
 	char buf[40];
-	int w_status, qwater, starth = -1, startm = -1;
+	int w_status, qwater, starth = -1, startm = -1, lt = 0;
 	int saved_w_status, saved_qwater, ret;
+	int dvstate[DVCOUNT];
 	//int p_state, p_status, p_current, p_current_lim, p_min_pres, p_max_pres, p_press;
-	int i, j, kesc = 0, nbuttons = 2;
+	int i, key, j, kesc = 0, nbuttons = 2;
 	//saved_pump_state = saved_pump_status = saved_pump_pressure_kpa = -1;
 	//saved_pump_current = -5;
 	draw_water_screen_z(zone);
@@ -196,31 +197,62 @@ int do_water_screen_z(int zone)
 	xQueueSend(ui_cmd_q, &msg, 0);
 	while(1)
 		{
-		i = handle_ui_key(watch, btns, nbuttons);
-		if(i == KEY_PRESS_SHORT)
+		key = handle_ui_key(watch, btns, nbuttons);
+		if(key == KEY_PRESS_SHORT)
 			{
 			if(btns[1].state == 1)
 				break;
 			}
-		if(i == KEY_PRESS_LONG)
+		if(key == KEY_PRESS_LONG)
 			{
 			if(btns[0].state == 1)
 				{
-				// dv open zone
-				open_dv(zone);
+				msg.val = zone;
+				if(dvstate[zone] == DVCLOSE)
+					msg.source = DVOPEN;
+				else
+					msg.source = DVCLOSE;
+				xQueueSend(water_cmd_q, &msg, 0);
+				lt = 0;
 				}
 			}
-		if(i == WATER_VAL_CHANGE)
+		if(key == WATER_DV_OP)
+			{
+			lt = 1 - lt;
+			if(lt)
+				lv_led_set_color(led_act, LEDON);
+			else
+				lv_led_set_color(led_act, LEDOFF);
+			}
+		if(key == WATER_DV_CHANGE)
+			{
+			get_water_dv_state(dvstate);
+			if(dvstate[zone] == DVOPEN)
+				lv_led_set_color(led_act, LEDON);
+			else if(dvstate[zone] == DVCLOSE)
+				lv_led_set_color(led_act, LEDOFF);
+			else
+				lv_led_set_color(led_act, LEDFAULT);
+			}
+		if(key == WATER_VAL_CHANGE)
 			{
 			struct tm timeinfo = { 0 };
 			int tact, idx, start[2];
 			//last_no_status_t *last_no;
 			time_t now = 0;
-			get_water_values(last_status, &dv_program);
+			get_water_values(&dv_program, dvstate);
+			if(dvstate[zone] == DVOPEN)
+				lv_led_set_color(led_act, LEDON);
+			else if(dvstate[zone] == DVCLOSE)
+				lv_led_set_color(led_act, LEDOFF);
+			else
+				lv_led_set_color(led_act, LEDFAULT);
+
 
 // next watering
 
 			lv_label_set_text(date_next, "N/A");
+			int k;
 			for(j = 0; j < DVCOUNT; j++) //look for next program to start
 				{
 				if(dv_program.p[j].dv == zone)
@@ -230,7 +262,7 @@ int do_water_screen_z(int zone)
 					time(&now);
 					localtime_r(&now, &timeinfo);
 					tact = timeinfo.tm_hour * 60 + timeinfo.tm_min;
-					for(int k = 0; k < wpday; k++)
+					for(k = 0; k < wpday; k++)
 						start[k] = dv_program.p[j].w_prog[k].starth * 60 + dv_program.p[j].w_prog[k].startm ;
 
 					if(start[0] < start[1])
@@ -250,122 +282,51 @@ int do_water_screen_z(int zone)
 						}
 					lv_label_set_text_fmt(date_next, "%02d.%02d.%02d - %02d:%02d", timeinfo.tm_mday, timeinfo.tm_mon + 1, (timeinfo.tm_year % 100),
 					    															dv_program.p[j].w_prog[idx].starth, dv_program.p[j].w_prog[idx].startm);
-					break;
-					}
-				}
-// last watering with status
-			time(&now);
-			localtime_r(&now, &timeinfo);
-			tact = timeinfo.tm_hour * 60 + timeinfo.tm_min;
-			for(i = 0; i < DVCOUNT; i++)
-				{
-				if(last_status[i].dv == zone)
-					{
-					start[0] = start[1] = -1;
-					for(int k = 0; k < wpday && last_status[j].last_no_b[k].cs != -1; k++)
-						start[k] = last_status[i].last_no_b[k].hour * 60 + last_status[i].last_no_b[k].min;
-					idx = -1;
-					if(start[0] == -1)
+					// last watering with status
+					k = 0;
+					if(wpday > 1)
 						{
-						if(start[1] == -1)
-							idx = -1;
-						else
-							idx = 1;
-						}
-					else
-						{
-						if(start[1] == -1)
-							idx = 0;
-						else
+						for(k = 0; k < wpday - 1; k++)
 							{
-							if(start[0] < start[1])
-								{
-								if(tact < start[0] || tact > start[1]) idx = 0;
-								else idx = 1;
-								}
-							else
-								{
-								if(tact < start[1] || tact > start[0]) idx = 1;
-								else idx = 0;
-								}
+							if(dv_program.p[j].w_prog[k].eff_start.tm_hour * 60 + dv_program.p[j].w_prog[k].eff_start.tm_min >=
+								dv_program.p[j].w_prog[k + 1].eff_start.tm_hour * 60 + dv_program.p[j].w_prog[k + 1].eff_start.tm_min)
+							break;
 							}
 						}
-					if(idx >=0 )
+					lv_label_set_text_fmt(date_last, "%02d.%02d.%02d - %02d:%02d",
+							dv_program.p[j].w_prog[k].eff_start.tm_year % 100,
+							dv_program.p[j].w_prog[k].eff_start.tm_mon + 1,
+							dv_program.p[j].w_prog[k].eff_start.tm_mday,
+							dv_program.p[j].w_prog[k].eff_start.tm_hour,
+							dv_program.p[j].w_prog[k].eff_start.tm_min);
+					if(dv_program.p[j].w_prog[k].cs != -1)
 						{
-						if(tact > start[idx])
+						if(dv_program.p[j].w_prog[k].cs == COMPLETED)
 							{
-							now += 86400;
-							localtime_r(&now, &timeinfo);
+							lv_label_set_text(state, "OK");
 							}
-						lv_label_set_text_fmt(date_last, "%02d.%02d.%02d - %02d:%02d", last_status[i].last_no_b[idx].day, last_status[i].last_no_b[idx].mon + 1,
-																						(last_status[i].last_no_b[idx].year % 100),
-																						last_status[i].last_no_b[idx].hour, last_status[i].last_no_b[idx].min);
-						if(last_status[i].last_no_e[idx].cs != -1)
+						else if(dv_program.p[j].w_prog[k].cs == IN_PROGRESS)
 							{
-							if(last_status[i].last_no_e[idx].cs == COMPLETED)
-								{
-								lv_label_set_text(state, "OK");
-								}
-							else if(last_status[i].last_no_e[idx].cs == IN_PROGRESS)
-								{
-								lv_label_set_text(state, "In progress");
-								}
-							else
-								{
-								char buferr[10];
-								switch(last_status[i].last_no_e[idx].cs)
-									{
-									case ABORTED: strcpy(buf, "ABORTED: ");break;
-									case START_ERROR: strcpy(buf, "START ERROR: ");break;
-									case STOP_ERROR: strcpy(buf, "STOP_ERROR: ");break;
-									default: strcpy(buf, "invalid: ");break;
-									}
-								sprintf(buferr, "(%d)", last_status[i].last_no_e[idx].fault);
-								strcat(buf, buferr);
-								lv_label_set_text(state, buf);
-								}
-							lv_label_set_text_fmt(wtotal, "%d l", last_status[i].last_no_e[idx].qwater);
+							lv_label_set_text(state, "In progress");
 							}
 						else
 							{
-							if(last_status[i].last_no_b[idx].cs != -1)
+							char buferr[10];
+							switch(dv_program.p[j].w_prog[k].cs)
 								{
-								char buferr[10];
-								switch(last_status[i].last_no_b[idx].cs)
-									{
-									case ABORTED: strcpy(buf, "ABORTED: ");break;
-									case START_ERROR: strcpy(buf, "START ERROR: ");break;
-									case STOP_ERROR: strcpy(buf, "STOP_ERROR: ");break;
-									default: strcpy(buf, "invalid: ");break;
-									}
-								sprintf(buferr, "(%d)", last_status[i].last_no_b[idx].fault);
-								strcat(buf, buferr);
-								lv_label_set_text(state, buf);
-								lv_label_set_text_fmt(wtotal, "%d l", last_status[i].last_no_b[idx].qwater);
+								case ABORTED: strcpy(buf, "ABORTED: ");break;
+								case START_ERROR: strcpy(buf, "START ERROR: ");break;
+								case STOP_ERROR: strcpy(buf, "STOP_ERROR: ");break;
+								default: strcpy(buf, "invalid: ");break;
 								}
+							sprintf(buferr, "(%d)", dv_program.p[j].w_prog[k].fault);
+							strcat(buf, buferr);
+							lv_label_set_text(state, buf);
 							}
-
-
-						int duration = 0;
-						if(last_status[i].last_no_b[idx].cs != -1 && last_status[i].last_no_e[idx].cs != -1)
-							{
-							duration = (last_status[i].last_no_e[idx].hour * 60 + last_status[i].last_no_e[idx].min) -
-											(last_status[i].last_no_b[idx].hour * 60 + last_status[i].last_no_b[idx].min);
-							}
-						lv_label_set_text_fmt(timew, "%d min", duration);
 						}
 					break;
 					}
 				}
-			if(i == DVCOUNT)
-				{
-				ESP_LOGI("WSCR", "No program_status.txt (yet)");
-				lv_label_set_text(date_last, "N/A");
-				lv_label_set_text(state, "N/A");
-				lv_label_set_text(timew, "N/A");
-				lv_label_set_text(wtotal, "N/A");
-				}
-
 			}
 		}
 	return zone;
