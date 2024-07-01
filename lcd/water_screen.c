@@ -37,7 +37,7 @@
 #include "water_screen_z.h"
 #include "water_screen.h"
 
-extern lv_style_t btn_norm, btn_sel, btn_press, cell_style, cell_style_left;
+extern lv_style_t btn_norm, btn_sel, btn_press, cell_style;
 static lv_obj_t *water_scr, *watch, *led_act[4];
 static btn_main_t btns[5];
 
@@ -191,7 +191,7 @@ static void draw_water_screen(int active_screen)
 int do_water_screen(int active_screen)
 	{
 
-	int i, lt = 0, key, active_but = 0, nbuttons = 5;
+	int i, lt = 0, key, key_long, param, active_but = 0, nbuttons = 5;
 	int dvstate[DVCOUNT] = {0};
 	//saved_pump_state = saved_pump_status = saved_pump_pressure_kpa = -1;
 	//saved_pump_current = -5;
@@ -203,22 +203,14 @@ int do_water_screen(int active_screen)
 	xQueueSend(ui_cmd_q, &msg, 0);
 	while(1)
 		{
-		key = handle_ui_key(watch, btns, nbuttons);
+		key_long = handle_ui_key(watch, btns, nbuttons);
+		key = key_long & 0xffff;
+		param = key_long >> 16;
+		//ESP_LOGI("WSCR", "ui key: %x, %d", key, param);
 		if(key == KEY_PRESS_SHORT)
 			{
 			if(btns[4].state == 1)
 				break;
-			/*
-			for(i = 0; i < nbuttons - 1; i++)
-				{
-				if(btns[i].state == 1)
-					{
-					//do_water_screen_z(i);
-					//draw_water_screen(i);
-					break;
-					}
-				}
-				*/
 			}
 		else if(key == KEY_PRESS_LONG)
 			{
@@ -238,13 +230,26 @@ int do_water_screen(int active_screen)
 					}
 				}
 			}
-		if(key == WATER_DV_OP)
+		else if(key == WATER_DV_OP)
 			{
 			lt = 1 - lt;
 			if(lt)
-				lv_led_set_color(led_act[active_but], LEDON);
+				lv_led_set_color(led_act[param], LEDON);
 			else
-				lv_led_set_color(led_act[active_but], LEDOFF);
+				lv_led_set_color(led_act[param], LEDOFF);
+			}
+		else if(key == WATER_VAL_CHANGE)
+			{
+			get_water_dv_state(dvstate);
+			for(i = 0; i < DVCOUNT; i++)
+				{
+				if(dvstate[i] == DVOPEN)
+					lv_led_set_color(led_act[i], LEDON);
+				else if(dvstate[i] == DVCLOSE)
+					lv_led_set_color(led_act[i], LEDOFF);
+				else
+					lv_led_set_color(led_act[i], LEDFAULT);
+				}
 			}
 		}
 	return WATER_SCREEN;

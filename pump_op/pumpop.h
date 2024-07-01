@@ -41,11 +41,16 @@
 /** file storing qmeter calibration a, b : q = (f + a) / b */
 #define QCAL_FILE				"qcal.txt"
 
+/** file storing total water consumed */
+#define TWATER_FILE				"twater.txt"
+
 #define DEFAULT_PRES_MIN_LIMIT		300
 #define DEFAULT_PRES_MAX_LIMIT		370
 #define DEFAULT_PUMP_CURRENT_LIMIT	5000
 #define DEFAULT_OVERP_TIME_LIMIT	10
 #define DEFAULT_VOID_RUN_COUNT		20
+
+#define SAVE_TWATER_TIME			20 // = hour *60 + min
 
 
 typedef struct

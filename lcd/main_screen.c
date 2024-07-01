@@ -28,6 +28,7 @@
 #include "common_defines.h"
 #include "lvgl.h"
 #include "pumpop.h"
+#include "waterop.h"
 #include "lcd.h"
 #include "rot_enc.h"
 #include "handle_ui_key.h"
@@ -111,7 +112,8 @@ static void draw_main_screen(int active_screen)
     sprintf(buf, "%02d:%02d - %02d.%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_mday, (timeinfo.tm_mon + 1));
     lv_label_set_text(watch, buf);
 
-    lv_scr_load_anim(main_scr, LV_SCR_LOAD_ANIM_MOVE_LEFT, 100, 0, true);
+    //lv_scr_load_anim(main_scr, LV_SCR_LOAD_ANIM_MOVE_LEFT, 100, 0, true);
+    lv_scr_load_anim(main_scr, LV_SCR_LOAD_ANIM_NONE, 0, 0, false);
 
     gpio_set_level(LCD_BK_LIGHT, LCD_BK_LIGHT_ON_LEVEL);
 	}
@@ -119,16 +121,21 @@ static void draw_main_screen(int active_screen)
 int do_main_screen(int active_screen)
 	{
 	msg_t msg;
-	int i, kesc = 0, ret = 0, nbuttons = 2;
+	int dvstate[DVCOUNT] = {0};
+	int i, param, kesc = 0, ret = 0, nbuttons = 2, lt = 0;
 	int p_state, p_status, p_current, p_current_lim, p_min_pres, p_max_pres, p_press, p_debit;
 	k_act = 1;
 	draw_main_screen(active_screen);
 	xQueueReset(ui_cmd_q);
 	msg.source = PUMP_VAL_CHANGE;
 	xQueueSend(ui_cmd_q, &msg, 0);
+	msg.source = WATER_VAL_CHANGE;
+	xQueueSend(ui_cmd_q, &msg, 0);
 	while(!kesc)
 		{
 		i = handle_ui_key(watch, btns, nbuttons);
+		param = i >> 16;
+		i &= 0xffff;
 		if(i == KEY_PRESS_SHORT)
 			{
 			for(i = 0; i < nbuttons; i++)
@@ -154,7 +161,7 @@ int do_main_screen(int active_screen)
 				}
 			}
 
-		if(i == PUMP_VAL_CHANGE)
+		else if(i == PUMP_VAL_CHANGE)
 			{
 			get_pump_values(&p_state, &p_status, &p_current, &p_current_lim, &p_min_pres, &p_max_pres, &p_press, &p_debit);
 			if(p_status == PUMP_FAULT)
@@ -172,9 +179,25 @@ int do_main_screen(int active_screen)
 					}
 				}
 			}
-		if(i == WATER_VAL_CHANGE)
+		else if(i == WATER_VAL_CHANGE)
 			{
-
+			int j;
+			get_water_dv_state(dvstate);
+			for(j = 0; j < DVCOUNT; j++)
+				{
+				if(dvstate[j] == DVOPEN)
+					break;
+				}
+			if(j < DVCOUNT)
+				lv_led_set_color(ledw, LEDON);
+			}
+		else if(i == WATER_DV_OP)
+			{
+			lt = 1 - lt;
+			if(lt)
+				lv_led_set_color(ledw, LEDON);
+			else
+				lv_led_set_color(ledw, LEDON);
 			}
 		}
 	return ret;

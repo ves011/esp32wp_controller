@@ -238,6 +238,7 @@ int do_pump_screen()
 	while(1)
 		{
 		i = handle_ui_key(watch, btns, nbuttons);
+		i &= 0xffff;
 		//ESP_LOGI(TAG, "handle_ui_key() %d", i);
 		if(i == KEY_PRESS_SHORT)
 			{

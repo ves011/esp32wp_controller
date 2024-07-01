@@ -32,16 +32,18 @@
 #include "lcd.h"
 #include "pumpop.h"
 #include "rot_enc.h"
-static int k_act = 1;
+
 
 int handle_ui_key(lv_obj_t *watch, btn_main_t *btns, int nbuttons)
 	{
+	int k_act = 1;
 	msg_t msg;
 	int i, kesc = 0, ret = ESP_OK, b_light = LCD_BK_LIGHT_ON_LEVEL;
 	while(!kesc)
 		{
 		if(xQueueReceive(ui_cmd_q, &msg, portMAX_DELAY))
 			{
+			//ESP_LOGI("UI KEY", "src: %lu, val: %lu - %d, %d", msg.source, msg.val, b_light, k_act);
 			if (msg.source & K_ROT) //rot left or right
 				{
 				//ESP_LOGI("UI KEY", "rot %lu, %d, %d", msg.val, b_light, k_act);
@@ -70,19 +72,11 @@ int handle_ui_key(lv_obj_t *watch, btn_main_t *btns, int nbuttons)
 							break;
 							}
 						}
-					/*
-					if (i == nbuttons)
-						{
-						lv_obj_add_state(btns[0].btn, LV_STATE_FOCUSED);
-						btns[0].state = 1;
-						}
-						*/
 					}
 				else if(msg.val == K_ROT_LEFT)
 					{
 					for (i = nbuttons - 1; i >= 0; i--)
 						{
-						//bs = lv_obj_get_state(btns[i].btn);
 						if (btns[i].state)
 							{
 							lv_obj_clear_state(btns[i].btn, LV_STATE_FOCUSED);
@@ -95,16 +89,9 @@ int handle_ui_key(lv_obj_t *watch, btn_main_t *btns, int nbuttons)
 							break;
 							}
 						}
-					/*
-					if (i < 0)
-						{
-						lv_obj_add_state(btns[nbuttons - 1].btn, LV_STATE_FOCUSED);
-						btns[nbuttons - 1].state = 1;
-						}
-						*/
 					}
 				}
-			if(msg.source & K_KEY)
+			else if(msg.source & K_KEY)
 				{
 				if(k_act == 0)
 					{
@@ -127,7 +114,7 @@ int handle_ui_key(lv_obj_t *watch, btn_main_t *btns, int nbuttons)
 							}
 						}
 					}
-				if(msg.source == K_UP && k_act)
+				else if(msg.source == K_UP && k_act)
 					{
 					for(int i = 0; i < nbuttons; i++)
 						{
@@ -138,7 +125,7 @@ int handle_ui_key(lv_obj_t *watch, btn_main_t *btns, int nbuttons)
 							}
 						}
 					}
-				if (msg.source == K_PRESS)
+				else if (msg.source == K_PRESS)
 					{
 					if(k_act == 0)
 						{
@@ -170,7 +157,7 @@ int handle_ui_key(lv_obj_t *watch, btn_main_t *btns, int nbuttons)
 						}
 					}
 				}
-			if(msg.source == INACT_TIME)
+			else if(msg.source == INACT_TIME)
 				{
 				time_t now = 0;
 				char buf[28];
@@ -186,30 +173,32 @@ int handle_ui_key(lv_obj_t *watch, btn_main_t *btns, int nbuttons)
 					}
 				k_act = 0;
 				}
-			if(msg.source == PUMP_VAL_CHANGE)
+
+			else if(msg.source == PUMP_VAL_CHANGE)
 				{
 				kesc = 1;
 				ret = PUMP_VAL_CHANGE;
 				}
-			if(msg.source == PUMP_OP_ERROR)
+			else if(msg.source == PUMP_OP_ERROR)
 				{
 				kesc = 1;
 				ret = PUMP_OP_ERROR;
 				}
-			if(msg.source == WATER_VAL_CHANGE)
+			else if(msg.source == WATER_VAL_CHANGE)
 				{
 				kesc = 1;
 				ret = WATER_VAL_CHANGE;
 				}
-			if(msg.source == WATER_OP_ERROR)
+			else if(msg.source == WATER_OP_ERROR)
 				{
 				kesc = 1;
 				ret = WATER_OP_ERROR;
 				}
-			if(msg.source == WATER_DV_OP)
+			else if(msg.source == WATER_DV_OP)
 				{
 				kesc = 1;
-				ret = WATER_DV_OP;
+				ret = msg.val << 16 | WATER_DV_OP;
+				//ret = WATER_DV_OP;
 				}
 			}
 		}

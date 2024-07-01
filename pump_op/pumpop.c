@@ -57,9 +57,12 @@ int overp_time_limit = 10;
 static gptimer_handle_t qmeter_timer;
 static int qmeter_pc, qmeter_pc_sec;
 static uint64_t qmeter_ts, last_qmeter_ts;
-static int total_qwater;
+static RTC_NOINIT_ATTR  int total_qwater;
 static int qcal_a, qcal_b;
+static int saved_t_water;
 
+static int read_t_water();
+static int save_t_water(int total_qw);
 
 static const char *TAG = "PUMP OP";
 static QueueHandle_t pump_cmd_queue = NULL;
@@ -490,6 +493,8 @@ int stop_pump(int from)
 			{
 			psensor_mv = local_ps_mv;
 			pump_pressure_kpa = ((psensor_mv - kpa0_offset) * 250) / 1000;
+			if(pump_pressure_kpa < 0)
+				pump_pressure_kpa = 0;
 			if(pump_current < PUMP_CURRENT_OFF)
 				{
 				pump_state = PUMP_OFF;
@@ -587,6 +592,8 @@ int do_pumpop(int argc, char **argv)
         arg_print_errors(stderr, pumpop_args.end, argv[0]);
         return 1;
     	}
+    if(strcmp(argv[0], "pump"))
+    	return 0;
     /*
     if(strcmp(pumpop_args.op->sval[0], "start") == 0)
     	{
@@ -701,6 +708,12 @@ void register_pumpop()
     get_pump_state();
     qmeter_ts = last_qmeter_ts = 0;
     config_qmeter_timer();
+    saved_t_water = 0;
+    int rr = esp_reset_reason();
+    if(rr == ESP_RST_POWERON)
+    	total_qwater = 0;
+    ESP_LOGI(TAG, "reset reason: %d", rr);
+    read_t_water();
 
     xTaskCreate(pump_mon_task, "pump_task", 8192, NULL, 5, &pump_task_handle);
 	if(!pump_task_handle)
@@ -833,12 +846,14 @@ void pump_mon_task(void *pvParameters)
 			}
 		if((loop % pcount) == 0)
 			{
+
 			if(pump_state != saved_pump_state ||
 				pump_status != saved_pump_status ||
 					pump_current != saved_pump_current ||
 						pump_pressure_kpa != saved_pump_pressure_kpa ||
 							saved_pump_debit != pump_debit ||
 								saved_total_qwater != total_qwater)
+
 				{
 				sprintf(msg, "%s\1%d\1%d\1%d\1%d\1%d\1%d", PUMP_STATE, pump_state, pump_status, pump_current, pump_pressure_kpa, pump_debit, total_qwater/60);
 				publish_monitor(msg, 1, 0);
@@ -853,25 +868,36 @@ void pump_mon_task(void *pvParameters)
 				xQueueSend(ui_cmd_q, &msg_ui, 0);
 				}
 			}
+		if(qmeter_ts - last_qmeter_ts >  0)
+			{
+			last_qmeter_ts = qmeter_ts;
+			pump_debit = (qmeter_pc_sec + qcal_a) / qcal_b;
+			total_qwater = total_qwater + (qmeter_ts - last_qmeter_ts) * pump_debit;
+			}
 		// run loop every 2 sec if PUMP_OFFLINE
 		// else loop every 100 msec
 		if(pump_status != PUMP_ONLINE)
 			{
-			pcount = 1;
+			pcount = 3;
 			vTaskDelay(2000 / portTICK_PERIOD_MS);
+			//total_qwater++;
 			}
 		else
 			{
-			if(qmeter_ts - last_qmeter_ts >  0)
-				{
-				last_qmeter_ts = qmeter_ts;
-				pump_debit = (qmeter_pc_sec + qcal_a) / qcal_b;
-				total_qwater = total_qwater + (qmeter_ts - last_qmeter_ts) * pump_debit;
-
-				}
 			pcount = 20;
 			vTaskDelay(100 / portTICK_PERIOD_MS);
 			}
+		struct tm tminfo;
+		time_t ltime;
+		ltime = time(NULL);
+		localtime_r(&ltime, &tminfo);
+		if(tminfo.tm_hour * 60 + tminfo.tm_min == SAVE_TWATER_TIME && !saved_t_water)
+			{
+			if(save_t_water(total_qwater) == ESP_OK)
+				saved_t_water = 1;
+			}
+		else
+			saved_t_water = 0;
 		loop++;
 		}
 	}
@@ -903,6 +929,43 @@ static int read_qcal()
 	return ret;
 	}
 
+int save_t_water(int total_qw)
+	{
+	int ret = ESP_FAIL;
+	char buf[64];
+	FILE *f = fopen(BASE_PATH"/"TWATER_FILE, "w");
+	if(f)
+		{
+		struct tm tminfo;
+		time_t ltime;
+		ltime = time(NULL);
+		localtime_r(&ltime, &tminfo);
+		sprintf(buf, "%4d-%02d-%02dT%02d:%02d > %d", tminfo.tm_year + 1900, tminfo.tm_mon + 1, tminfo.tm_mday, tminfo.tm_hour, tminfo.tm_min, total_qw);
+		if(fputs(buf, f) > 0)
+			ret = ESP_OK;
+		fclose(f);
+		}
+	return ret;
+	}
+int read_t_water()
+	{
+	int ret = ESP_FAIL;
+	int total_qw = 0;
+	char buf[64];
+	FILE *f = fopen(BASE_PATH"/"TWATER_FILE, "r");
+	if(f)
+		{
+		if(fgets(buf, 40, f))
+			{
+			total_qw = atoi(buf + 18);
+			ret = ESP_OK;
+			}
+		fclose(f);
+		}
+	if(total_qwater < total_qw)
+		total_qwater = total_qw;
+	return ret;
+	}
 #if 0
 void process_adc_current(minmax_t *min, minmax_t *max)
 	{

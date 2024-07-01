@@ -123,30 +123,6 @@ static void config_inactivity_timer()
 	esp_timer_handle_t inactivity_timer;
     ESP_ERROR_CHECK(esp_timer_create(&inactivity_timer_args, &inactivity_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(inactivity_timer, INACTIVITY_TIME));
-    /*
-	int ret;
-	gptimer_handle_t inactivity_timer;
-	inactivity_timer = NULL;
-	gptimer_config_t gptconf = 	{
-								.clk_src = GPTIMER_CLK_SRC_DEFAULT,
-								.direction = GPTIMER_COUNT_UP,
-								.resolution_hz = 1000000,					//1 usec resolution
-
-								};
-	gptimer_alarm_config_t al_config = 	{
-										.reload_count = 0,
-										.alarm_count = INACTIVITY_TIME,
-										.flags.auto_reload_on_alarm = true,
-										};
-
-	gptimer_event_callbacks_t cbs = {.on_alarm = &inactivity_timer_callback,}; // register user callback
-	ESP_ERROR_CHECK(gptimer_new_timer(&gptconf, &inactivity_timer));
-	ESP_ERROR_CHECK(gptimer_set_alarm_action(inactivity_timer, &al_config));
-	ret = gptimer_register_event_callbacks(inactivity_timer, &cbs, NULL);
-	ESP_LOGI(TAG, "cb register %d", ret);
-	ESP_ERROR_CHECK(gptimer_enable(inactivity_timer));
-	gptimer_start(inactivity_timer);
-	*/
 	}
 static void lvgl_task(void *pvParameters)
 	{

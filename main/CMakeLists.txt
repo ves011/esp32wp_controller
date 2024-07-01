@@ -18,7 +18,6 @@ SRCS 					"main.c"
 						"../lcd/main_screen.c"
 						"../lcd/pump_screen.c"
 						"../lcd/water_screen.c"
-						"../lcd/water_screen_z.c"
 						"../lcd/boot_screen.c"
 						"../lcd/handle_ui_key.c"
 						"../pump_op/pumpop.c"
@@ -36,3 +35,5 @@ INCLUDE_DIRS 			"."
 						"../pump_op"
 						"../water_op"
 						)
+idf_build_set_property(COMPILE_OPTIONS "-DLV_CONF_INCLUDE_SIMPLE=1" APPEND)
+idf_build_set_property(COMPILE_OPTIONS "-I../lcd" APPEND)

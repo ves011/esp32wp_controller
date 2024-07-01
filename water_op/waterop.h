@@ -41,9 +41,11 @@
 #define STDEV_MAX				10
 #define DVSTATE_OK				1
 #define DVSTATE_FAULT			2
+
 #define DVOPEN					1
 #define DVCLOSE					0
 #define DVOP_INPROGRESS			2
+#define DVOP_STEADY				3
 #define MINPRES					100
 
 /** Name of the file storing dv program */
@@ -95,6 +97,7 @@
 
 #define STATE_W					"state"
 #define STATE_P					"program"
+#define DVSTATE					"dvstate"
 
 
 
