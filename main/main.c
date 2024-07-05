@@ -57,6 +57,8 @@ int console_state;
 int restart_in_progress;
 int controller_op_registered;
 
+int init_completed;
+
 esp_vfs_spiffs_conf_t conf_spiffs =
 	{
 	.base_path = BASE_PATH,
@@ -106,7 +108,7 @@ void app_main(void)
     io_conf.pull_down_en = 0;
     io_conf.pull_up_en = 1;
     gpio_config(&io_conf);
-    ESP_LOGI(TAG, "app main 1");
+    ESP_LOGI(TAG, "app main 1 / %lu", esp_get_free_heap_size());
     /*
      * if BOOT_CTRL_PIN is bp_val at boot restart with esp32_ota
      */
@@ -136,14 +138,25 @@ void app_main(void)
     	}
 	gpio_reset_pin(bp_ctrl);
 
-	lcd_init();
+	//lcd_init();
+	TaskHandle_t lvgl_task_handle;
+	init_completed = 0;
+	xTaskCreatePinnedToCore(lvgl_task, "lvgl_task", 8192, NULL, 10, &lvgl_task_handle, 1);
+	if(!lvgl_task_handle)
+		{
+		ESP_LOGE(TAG, "Unable to start lvgl task");
+		esp_restart();
+		}
+	while(!init_completed)
+		vTaskDelay(pdMS_TO_TICKS(10));
+	ESP_LOGI(TAG, "app main 2 / %lu", esp_get_free_heap_size());
 	restart_in_progress = 0;
 	controller_op_registered = 0;
 	console_state = CONSOLE_OFF;
 	setenv("TZ","EET-2EEST,M3.4.0/03,M10.4.0/04",1);
 	ESP_LOGI(TAG, "spifffs check");
 	spiffs_storage_check();
-	ESP_LOGI(TAG, "initialize nvs");
+	ESP_LOGI(TAG, "initialize nvs / %lu", esp_get_free_heap_size());
 	initialize_nvs();
     msg.val = 0;
     xQueueSend(ui_cmd_q, &msg, 0);
@@ -151,6 +164,7 @@ void app_main(void)
 	rw_params(PARAM_READ, PARAM_CONSOLE, &console_state);
 	tsync = 0;
 	wifi_join(DEFAULT_SSID, DEFAULT_PASS, JOIN_TIMEOUT_MS);
+	ESP_LOGI(TAG, "wifi joined / %lu", esp_get_free_heap_size());
 
 	// *
 	// * the line below is required to make interrupts on gpio 36,39 to work properly
@@ -161,16 +175,19 @@ void app_main(void)
 	msg.val = 1;
     xQueueSend(ui_cmd_q, &msg, 0);
 	tcp_log_init();
+	ESP_LOGI(TAG, "log init / %lu", esp_get_free_heap_size());
 	esp_log_set_vprintf(my_log_vprintf);
 	msg.val = 2;
     xQueueSend(ui_cmd_q, &msg, 0);
 
 	// start task to sync local time with NTP server
-	xTaskCreate(ntp_sync, "NTP_sync_task", 6134, NULL, USER_TASK_PRIORITY, &ntp_sync_task_handle);
+	xTaskCreate(ntp_sync, "NTP_sync_task", 4096, NULL, USER_TASK_PRIORITY, &ntp_sync_task_handle);
+	ESP_LOGI(TAG, "NTP Sync task / %lu", esp_get_free_heap_size());
 	msg.val = 3;
     xQueueSend(ui_cmd_q, &msg, 0);
 	if(mqtt_start() == ESP_OK)
 		register_mqtt();
+	ESP_LOGI(TAG, "MQTT task / %lu", esp_get_free_heap_size());
 	msg.val = 4;
     xQueueSend(ui_cmd_q, &msg, 0);
 #ifdef WITH_CONSOLE
@@ -195,7 +212,9 @@ void app_main(void)
 	/* Register commands */
 	esp_console_register_help_command();
 	register_system();
+	ESP_LOGI(TAG, "register system / %lu", esp_get_free_heap_size());
 	register_wifi();
+	ESP_LOGI(TAG, "register wifi / %lu", esp_get_free_heap_size());
 	msg.val = 5;
     xQueueSend(ui_cmd_q, &msg, 0);
 
@@ -209,6 +228,7 @@ void app_main(void)
     xQueueSend(ui_cmd_q, &msg, 0);
 	register_ad();
 	register_pumpop();
+	ESP_LOGI(TAG, "register pump op / %lu", esp_get_free_heap_size());
 #endif
 #if ACTIVE_CONTROLLER == WESTA_CONTROLLER
 	register_westaop();
@@ -217,6 +237,7 @@ void app_main(void)
 	msg.val = 7;
     xQueueSend(ui_cmd_q, &msg, 0);
 	register_waterop();
+	ESP_LOGI(TAG, "register waterop / %lu", esp_get_free_heap_size());
 
 #endif
 	controller_op_registered = 1;
@@ -224,7 +245,8 @@ void app_main(void)
     xQueueSend(ui_cmd_q, &msg, 0);
 
 	//lcd_init();
-	init_rotenc();
+	//init_rotenc();
+	ESP_LOGI(TAG, "init rot enc / %lu", esp_get_free_heap_size());
 #ifdef WITH_CONSOLE
 #if defined(CONFIG_ESP_CONSOLE_UART_DEFAULT) || defined(CONFIG_ESP_CONSOLE_UART_CUSTOM)
     esp_console_dev_uart_config_t hw_config = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
@@ -246,6 +268,8 @@ void app_main(void)
 #endif
 
 	ESP_ERROR_CHECK(esp_console_start_repl(repl));
+	ESP_LOGI(TAG, "console start / %lu", esp_get_free_heap_size());
 #endif
-
+	//while(1)
+	//	vTaskDelay(pdMS_TO_TICKS(100));
 	}

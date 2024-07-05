@@ -71,32 +71,32 @@ void do_boot_screen()
 				{
 				if(msg.val == 8)
 					break;
-				strcpy(bmsg, "");
+				bmsg[0] = 0;
 				switch(msg.val)
 					{
 					case 0:
-						strcpy(bmsg, "spiffs, nvs - initit completed");
+						strcat(bmsg, "spiffs, nvs - initit completed ");
 						break;
 					case 1:
-						strcpy(bmsg, "connected to network");
+						strcat(bmsg, "connected to network ");
 						break;
 					case 2:
-						strcpy(bmsg, "tcp log init");
+						strcat(bmsg, "tcp log init ");
 						break;
 					case 3:
-						strcpy(bmsg, "NTP sync task created");
+						strcat(bmsg, "NTP sync task created ");
 						break;
 					case 4:
-						strcpy(bmsg, "MQTT client started");
+						strcat(bmsg, "MQTT client started ");
 						break;
 					case 5:
-						strcpy(bmsg, "system commands registered");
+						strcat(bmsg, "system commands registered ");
 						break;
 					case 6:
-						strcpy(bmsg, "registering pump operation");
+						strcat(bmsg, "registering pump operation ");
 						break;
 					case 7:
-						strcpy(bmsg, "registering water op");
+						strcat(bmsg, "registering water op ");
 						break;
 					}
 				lv_label_set_text(bstep[msg.val], bmsg);

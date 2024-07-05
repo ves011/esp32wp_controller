@@ -90,6 +90,8 @@
 #define PUMP_CMD_TOPIC			"pump01/cmd"
 
 #define WATERING_STATE			"wstate"
+#define WATERING_START			"wstart"
+#define WATERING_STOP			"wstop"
 #define PUMP_STATE				"pstate"
 #define PROG_HISTORY			"phist"
 #define ERR_START				"err_start"
@@ -98,6 +100,7 @@
 #define STATE_W					"state"
 #define STATE_P					"program"
 #define DVSTATE					"dvstate"
+#define DVOP					"dvop"
 
 
 

@@ -33,12 +33,13 @@
 #include "pumpop.h"
 #include "rot_enc.h"
 
+static int k_act = 1;
+static int b_light = LCD_BK_LIGHT_ON_LEVEL;
 
 int handle_ui_key(lv_obj_t *watch, btn_main_t *btns, int nbuttons)
 	{
-	int k_act = 1;
 	msg_t msg;
-	int i, kesc = 0, ret = ESP_OK, b_light = LCD_BK_LIGHT_ON_LEVEL;
+	int i, kesc = 0, ret = ESP_OK;
 	while(!kesc)
 		{
 		if(xQueueReceive(ui_cmd_q, &msg, portMAX_DELAY))
@@ -50,7 +51,7 @@ int handle_ui_key(lv_obj_t *watch, btn_main_t *btns, int nbuttons)
 				if(k_act == 0)
 					{
 					k_act = 1;
-					//if(b_light == LCD_BK_LIGHT_OFF_LEVEL)
+					if(b_light == LCD_BK_LIGHT_OFF_LEVEL)
 						{
 						gpio_set_level(LCD_BK_LIGHT, LCD_BK_LIGHT_ON_LEVEL);
 						b_light = LCD_BK_LIGHT_ON_LEVEL;

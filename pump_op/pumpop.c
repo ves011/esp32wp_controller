@@ -57,12 +57,12 @@ int overp_time_limit = 10;
 static gptimer_handle_t qmeter_timer;
 static int qmeter_pc, qmeter_pc_sec;
 static uint64_t qmeter_ts, last_qmeter_ts;
-static RTC_NOINIT_ATTR  int total_qwater;
+RTC_NOINIT_ATTR  uint64_t total_qwater;
 static int qcal_a, qcal_b;
 static int saved_t_water;
 
 static int read_t_water();
-static int save_t_water(int total_qw);
+static int save_t_water(uint64_t total_qw);
 
 static const char *TAG = "PUMP OP";
 static QueueHandle_t pump_cmd_queue = NULL;
@@ -405,10 +405,13 @@ fault current limit (mA) = %5d\n \
 0 kPa offset (mV)        = %5d\n \
 current (mA)             = %5d\n \
 timeout P max (sec)      = %5d\n \
-short run count          = %5d\n",
-			pump_state, opstate, pump_pressure_kpa, psensor_mv, pump_min_lim, pump_max_lim, pump_current_limit, kpa0_offset, pump_current, overp_time_limit, void_run_count);
-	sprintf(msg, "%s\1%d\1%d\1%d\1%d\1%d\1%d\1%d\1%d\1%d\1%d",
-			PUMP_STATE, pump_state, pump_status, pump_current, pump_pressure_kpa, kpa0_offset, pump_min_lim, pump_max_lim, pump_current_limit, overp_time_limit, void_run_count);
+short run count          = %5d\n \
+debit                    = %5d\n \
+toal water               = %llu\n"
+			,
+			pump_state, opstate, pump_pressure_kpa, psensor_mv, pump_min_lim, pump_max_lim, pump_current_limit, kpa0_offset, pump_current, overp_time_limit, void_run_count, pump_debit, total_qwater);
+	sprintf(msg, "%s\1%d\1%d\1%d\1%d\1%d\1%d\1%d\1%d\1%d\1%d\1%d\1%llu",
+			PUMP_STATE, pump_state, pump_status, pump_current, pump_pressure_kpa, kpa0_offset, pump_min_lim, pump_max_lim, pump_current_limit, overp_time_limit, void_run_count, pump_debit, total_qwater);
 	publish_state(msg, 1, 0);
 	msg_t msg_ui;
 	msg_ui.source = PUMP_VAL_CHANGE;
@@ -715,7 +718,7 @@ void register_pumpop()
     ESP_LOGI(TAG, "reset reason: %d", rr);
     read_t_water();
 
-    xTaskCreate(pump_mon_task, "pump_task", 8192, NULL, 5, &pump_task_handle);
+    xTaskCreate(pump_mon_task, "pump_task", 4096, NULL, 5, &pump_task_handle);
 	if(!pump_task_handle)
 		{
 		ESP_LOGE(TAG, "Unable to start pump monitor task");
@@ -725,16 +728,17 @@ void register_pumpop()
 
 void pump_mon_task(void *pvParameters)
 	{
-	minmax_t min[10], max[10];
-	int saved_pump_state = -1, saved_pump_status = -1, saved_pump_current = -1, saved_pump_pressure_kpa = -1, saved_pump_debit = -1, saved_total_qwater = -1;
+	//minmax_t min[10], max[10];
+	int saved_pump_state = -1, saved_pump_status = -1, saved_pump_current = -1, saved_pump_pressure_kpa = -1, saved_pump_debit = -1;
+	uint64_t saved_total_qwater = -1;
 	char msg[80];
 	msg_t msg_ui;
 	uint32_t pcount = 20, void_run = 0;
 	time_t running_time = 0, start_time = 0;
 	while(1)
 		{
-		memset(min, 0, sizeof(min));
-		memset(max, 0, sizeof(max));
+		//memset(min, 0, sizeof(min));
+		//memset(max, 0, sizeof(max));
 		int local_ps_mv;
 		if(get_pump_adc_values(&local_ps_mv) == ESP_OK)
 			{
@@ -820,20 +824,41 @@ void pump_mon_task(void *pvParameters)
 						}
 					else if(pump_pressure_kpa < pump_max_lim)
 						{
-						if(pump_state == PUMP_OFF)
+						if(pump_debit >= 2)
 							{
-							ESP_LOGI(TAG, "Pump ON  mon %d", pump_pressure_kpa);
-							if(start_pump(1) == ESP_OK)
+							if(pump_state == PUMP_OFF)
 								{
-								start_overp_time = 0;
-								start_time = time(NULL);
+								ESP_LOGI(TAG, "Pump ON  mon %d", pump_pressure_kpa);
+								if(start_pump(1) == ESP_OK)
+									{
+									start_overp_time = 0;
+									start_time = time(NULL);
+									}
+								else
+									{
+									stop_pump(1);
+									pump_operational(PUMP_OFFLINE);
+									msg_ui.source = PUMP_OP_ERROR;
+									xQueueSend(ui_cmd_q, &msg_ui, 0);
+									}
 								}
-							else
+							}
+						else
+							{
+							if(pump_pressure_kpa < pump_min_lim)
 								{
-								stop_pump(1);
-								pump_operational(PUMP_OFFLINE);
-								msg_ui.source = PUMP_OP_ERROR;
-								xQueueSend(ui_cmd_q, &msg_ui, 0);
+								if(start_pump(1) == ESP_OK)
+									{
+									start_overp_time = 0;
+									start_time = time(NULL);
+									}
+								else
+									{
+									stop_pump(1);
+									pump_operational(PUMP_OFFLINE);
+									msg_ui.source = PUMP_OP_ERROR;
+									xQueueSend(ui_cmd_q, &msg_ui, 0);
+									}
 								}
 							}
 						}
@@ -855,9 +880,9 @@ void pump_mon_task(void *pvParameters)
 								saved_total_qwater != total_qwater)
 
 				{
-				sprintf(msg, "%s\1%d\1%d\1%d\1%d\1%d\1%d", PUMP_STATE, pump_state, pump_status, pump_current, pump_pressure_kpa, pump_debit, total_qwater/60);
+				sprintf(msg, "%s\1%d\1%d\1%d\1%d\1%d\1%llu", PUMP_STATE, pump_state, pump_status, pump_current, pump_pressure_kpa, pump_debit, total_qwater/1000);
 				publish_monitor(msg, 1, 0);
-				ESP_LOGI(TAG, "Pump state running:%d, pressure:%d(kPa), current:%d(mA), debit:%d, q_water:%d, loop:%lu", pump_state, pump_pressure_kpa, pump_current, pump_debit, total_qwater/60, loop);
+				//ESP_LOGI(TAG, "Pump state running:%d, pressure:%d(kPa), current:%d(mA), debit:%d, f(debit):%d, q_water:%llu, loop:%lu", pump_state, pump_pressure_kpa, pump_current, pump_debit, qmeter_pc_sec, total_qwater/1000, loop);
 				saved_pump_state = pump_state;
 				saved_pump_status = pump_status;
 				saved_pump_current = pump_current;
@@ -870,9 +895,11 @@ void pump_mon_task(void *pvParameters)
 			}
 		if(qmeter_ts - last_qmeter_ts >  0)
 			{
+			pump_debit = (qmeter_pc_sec * qcal_a + qcal_b) / 1000;
+			if(qmeter_pc_sec < 2)
+				pump_debit = 0;
+			total_qwater = total_qwater + (qmeter_ts - last_qmeter_ts) * pump_debit * 1000 / 60; //cmc
 			last_qmeter_ts = qmeter_ts;
-			pump_debit = (qmeter_pc_sec + qcal_a) / qcal_b;
-			total_qwater = total_qwater + (qmeter_ts - last_qmeter_ts) * pump_debit;
 			}
 		// run loop every 2 sec if PUMP_OFFLINE
 		// else loop every 100 msec
@@ -884,7 +911,7 @@ void pump_mon_task(void *pvParameters)
 			}
 		else
 			{
-			pcount = 20;
+			pcount = 10;
 			vTaskDelay(100 / portTICK_PERIOD_MS);
 			}
 		struct tm tminfo;
@@ -929,7 +956,7 @@ static int read_qcal()
 	return ret;
 	}
 
-int save_t_water(int total_qw)
+int save_t_water(uint64_t total_qw)
 	{
 	int ret = ESP_FAIL;
 	char buf[64];
@@ -940,8 +967,8 @@ int save_t_water(int total_qw)
 		time_t ltime;
 		ltime = time(NULL);
 		localtime_r(&ltime, &tminfo);
-		sprintf(buf, "%4d-%02d-%02dT%02d:%02d > %d", tminfo.tm_year + 1900, tminfo.tm_mon + 1, tminfo.tm_mday, tminfo.tm_hour, tminfo.tm_min, total_qw);
-		if(fputs(buf, f) > 0)
+		sprintf(buf, "%4d-%02d-%02dT%02d:%02d > %llu", tminfo.tm_year + 1900, tminfo.tm_mon + 1, tminfo.tm_mday, tminfo.tm_hour, tminfo.tm_min, total_qw);
+		if(fputs(buf, f) != EOF)
 			ret = ESP_OK;
 		fclose(f);
 		}
@@ -950,14 +977,14 @@ int save_t_water(int total_qw)
 int read_t_water()
 	{
 	int ret = ESP_FAIL;
-	int total_qw = 0;
+	uint64_t total_qw = 0;
 	char buf[64];
 	FILE *f = fopen(BASE_PATH"/"TWATER_FILE, "r");
 	if(f)
 		{
-		if(fgets(buf, 40, f))
+		if(fgets(buf, 64, f))
 			{
-			total_qw = atoi(buf + 18);
+			total_qw = atoll(buf + 18);
 			ret = ESP_OK;
 			}
 		fclose(f);

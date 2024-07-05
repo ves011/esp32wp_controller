@@ -225,7 +225,7 @@ int do_pump_screen()
 	msg_t msg;
 	char buf[10];
 	int saved_pump_state = -1, saved_pump_status = -1, saved_pump_current = -5, saved_pump_pressure_kpa = -1;
-	int saved_current_lim = -1, saved_min_pres = -1, saved_max_pres = -1;
+	int saved_current_lim = -1, saved_min_pres = -1, saved_max_pres = -1, saved_debit = -1;;
 	int p_state, p_status, p_current, p_current_lim, p_min_pres, p_max_pres, p_press, p_debit;
 	int i, nbuttons = 2, ret = ESP_OK;
 	saved_pump_state = saved_pump_status = saved_pump_pressure_kpa = -1;
@@ -343,6 +343,11 @@ int do_pump_screen()
 				{
 				saved_pump_pressure_kpa = p_press;
 				lv_label_set_text_fmt(cpress, "%3d", p_press);
+				}
+			if(p_debit != saved_debit)
+				{
+				saved_debit = p_debit;
+				lv_label_set_text_fmt(cdebit, "%3d", p_debit);
 				}
 			}
 		if(i == PUMP_OP_ERROR)

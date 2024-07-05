@@ -122,7 +122,7 @@ int do_main_screen(int active_screen)
 	{
 	msg_t msg;
 	int dvstate[DVCOUNT] = {0};
-	int i, param, kesc = 0, ret = 0, nbuttons = 2, lt = 0;
+	int i, ret = 0, nbuttons = 2, lt = 0;
 	int p_state, p_status, p_current, p_current_lim, p_min_pres, p_max_pres, p_press, p_debit;
 	k_act = 1;
 	draw_main_screen(active_screen);
@@ -131,10 +131,9 @@ int do_main_screen(int active_screen)
 	xQueueSend(ui_cmd_q, &msg, 0);
 	msg.source = WATER_VAL_CHANGE;
 	xQueueSend(ui_cmd_q, &msg, 0);
-	while(!kesc)
+	while(1)
 		{
 		i = handle_ui_key(watch, btns, nbuttons);
-		param = i >> 16;
 		i &= 0xffff;
 		if(i == KEY_PRESS_SHORT)
 			{
@@ -142,19 +141,28 @@ int do_main_screen(int active_screen)
 				{
 				if(btns[i].state == 1)
 					{
-					//kesc = 1;
 					lv_obj_add_state(btns[i].btn, LV_STATE_PRESSED);
 					if(i == 0)
 						{
 						ret = PUMP_SCREEN;
 						do_pump_screen();
 						draw_main_screen(PUMP_SCREEN);
+						xQueueReset(ui_cmd_q);
+						msg.source = PUMP_VAL_CHANGE;
+						xQueueSend(ui_cmd_q, &msg, 0);
+						msg.source = WATER_VAL_CHANGE;
+						xQueueSend(ui_cmd_q, &msg, 0);
 						}
 					else if(i == 1)
 						{
 						ret = WATER_SCREEN;
 						do_water_screen(0);
 						draw_main_screen(WATER_SCREEN);
+						xQueueReset(ui_cmd_q);
+						msg.source = PUMP_VAL_CHANGE;
+						xQueueSend(ui_cmd_q, &msg, 0);
+						msg.source = WATER_VAL_CHANGE;
+						xQueueSend(ui_cmd_q, &msg, 0);
 						}
 					break;
 					}
@@ -190,14 +198,16 @@ int do_main_screen(int active_screen)
 				}
 			if(j < DVCOUNT)
 				lv_led_set_color(ledw, LEDON);
+			else
+				lv_led_set_color(ledw, LEDOFF);
 			}
 		else if(i == WATER_DV_OP)
 			{
-			lt = 1 - lt;
+			lt = !lt;
 			if(lt)
 				lv_led_set_color(ledw, LEDON);
 			else
-				lv_led_set_color(ledw, LEDON);
+				lv_led_set_color(ledw, LEDOFF);
 			}
 		}
 	return ret;

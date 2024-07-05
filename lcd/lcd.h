@@ -52,6 +52,7 @@ typedef struct
     }btn_main_t;
 
 void lcd_init(void);
+void lvgl_task(void *pvParameters);
 //void ui_cmd_task();
 
 

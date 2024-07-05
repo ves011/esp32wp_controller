@@ -27,6 +27,7 @@
 #include "driver/gptimer.h"
 #include "common_defines.h"
 #include "lvgl.h"
+#include "rot_enc.h"
 #include "external_defs.h"
 #include "boot_screen.h"
 #include "main_screen.h"
@@ -41,6 +42,8 @@ int lv_timer_stop;
 static uint32_t active_screen;
 static lv_disp_t *disp;
 static TaskHandle_t lvgl_task_handle, ui_task_handle;
+
+extern int init_completed;
 
 
 const char *TAG = "LCD";
@@ -92,11 +95,11 @@ static void example_lvgl_port_update_callback(lv_disp_drv_t *drv)
     }
 }
 
-static void example_increase_lvgl_tick(void *arg)
-{
+static void increase_lvgl_tick(void *arg)
+	{
     /* Tell LVGL how many milliseconds has elapsed */
     lv_tick_inc(LVGL_TICK_PERIOD_MS);
-}
+	}
 
 /*static bool IRAM_ATTR inactivity_timer_callback(gptimer_handle_t c_timer, const gptimer_alarm_event_data_t *edata, void *args)
 	{
@@ -124,16 +127,19 @@ static void config_inactivity_timer()
     ESP_ERROR_CHECK(esp_timer_create(&inactivity_timer_args, &inactivity_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(inactivity_timer, INACTIVITY_TIME));
 	}
-static void lvgl_task(void *pvParameters)
+void lvgl_task(void *pvParameters)
 	{
-	 while (1)
-		 {
-		 // raise the task priority of LVGL and/or reduce the handler period can improve the performance
-		 vTaskDelay(pdMS_TO_TICKS(20));
-		 //usleep(5000);
-		 // The task running lv_timer_handler should have lower priority than that running `lv_tick_inc`
-		 lv_timer_handler();
-		 }
+	lcd_init();
+	init_rotenc();
+	init_completed = 1;
+	while (1)
+		{
+		// raise the task priority of LVGL and/or reduce the handler period can improve the performance
+		vTaskDelay(pdMS_TO_TICKS(20));
+		//usleep(5000);
+		// The task running lv_timer_handler should have lower priority than that running `lv_tick_inc`
+		lv_timer_handler();
+		}
 	}
 
 static void ui_task(void *pvParameters)
@@ -148,7 +154,7 @@ static void ui_task(void *pvParameters)
 	}
 
 void lcd_init(void)
-{
+	{
     static lv_disp_draw_buf_t disp_buf; // contains internal graphic buffer(s) called draw buffer(s)
     static lv_disp_drv_t disp_drv;      // contains callback functions
     lv_timer_stop = 0;
@@ -283,7 +289,7 @@ void lcd_init(void)
     ESP_LOGI(TAG, "Install LVGL tick timer");
     // Tick interface for LVGL (using esp_timer to generate 2ms periodic event)
     const esp_timer_create_args_t lvgl_tick_timer_args = {
-        .callback = &example_increase_lvgl_tick,
+        .callback = &increase_lvgl_tick,
         .name = "lvgl_tick"
     };
     esp_timer_handle_t lvgl_tick_timer = NULL;
@@ -303,14 +309,15 @@ void lcd_init(void)
     active_screen = 0;
 
     config_inactivity_timer();
-
+    /*
     xTaskCreatePinnedToCore(lvgl_task, "lvgl_task", 8192, NULL, 10, &lvgl_task_handle, 1);
 	if(!lvgl_task_handle)
 		{
 		ESP_LOGE(TAG, "Unable to start lvgl task");
 		esp_restart();
 		}
-	xTaskCreatePinnedToCore(ui_task, "ui_task", 8192, NULL, 5, &ui_task_handle, 1);
+	*/
+	xTaskCreatePinnedToCore(ui_task, "ui_task", 8192, NULL, 8, &ui_task_handle, 1);
 	if(!ui_task_handle)
 		{
 		ESP_LOGE(TAG, "Unable to start UI task");
