@@ -15,7 +15,7 @@
 #define WITH_CONSOLE
 
 #define ACTIVE_CONTROLLER			WP_CONTROLLER
-#define CTRL_DEV_ID					1
+#define CTRL_DEV_ID					2
 
 #define ADC_AD7811
 //#define ADC_ESP32

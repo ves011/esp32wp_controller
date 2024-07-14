@@ -117,7 +117,7 @@ int open_dv(int dvnum)
 	 * loop until measured current is < CURRENT_OFF_LIM
 	 * 60 loops ~ 30 sec @12V
 	 */
-	for(i = 0; i < 60; i++)
+	for(i = 0; i < 80; i++)
 		{
 		if((ret = get_dv_adc_values(&dv_current)) == ESP_OK)
 			{
@@ -195,7 +195,7 @@ int close_dv(int dvnum)
 	gpio_set_level(PINMOT_A1, PIN_OFF);
 	gpio_set_level(PINMOT_B1, PIN_ON);
 	gpio_set_level(dvconfig[dvnum].pin_enable, PIN_ON);
-	for(i = 0; i < 60; i++)
+	for(i = 0; i < 80; i++)
 		{
 		if((ret = get_dv_adc_values(&dv_current)) == ESP_OK)
 			{
@@ -470,7 +470,7 @@ int do_dvop(int argc, char **argv)
     else if(strcmp(waterop_args.op->sval[0], "wpday") == 0)
     	{
     	int no;
-    	if(waterop_args.w_count->count && waterop_args.w_count->ival[0] >= 1 && waterop_args.w_count->ival[0] <= 2)
+    	if(waterop_args.w_count->count && waterop_args.w_count->ival[0] >= 0 && waterop_args.w_count->ival[0] <= 2)
     		{
     		no = waterop_args.w_count->ival[0];
    			for(int i = 0; i < DVCOUNT; i++)
@@ -579,7 +579,7 @@ void water_mon_task(void *pvParameters)
 						{
 						if(dv_program.p[i].w_prog[j].cs == NOT_STARTED)
 							{
-							ESP_LOGI(TAG, "Next program to start for DV%d - %d @%02d:%02d", dv_program.p[i].dv, dv_program.p[i].w_prog[j].no, dv_program.p[i].w_prog[j].starth, dv_program.p[i].w_prog[j].startm);
+							//ESP_LOGI(TAG, "Next program to start for DV%d - %d @%02d:%02d", dv_program.p[i].dv, dv_program.p[i].w_prog[j].no, dv_program.p[i].w_prog[j].starth, dv_program.p[i].w_prog[j].startm);
 							sprintf(buf, "np\1%d\1%d\1%d\1%d\1", dv_program.p[i].dv, dv_program.p[i].w_prog[j].no, dv_program.p[i].w_prog[j].starth, dv_program.p[i].w_prog[j].startm);
 							strcat(mqttbuf, buf);
 							}
@@ -589,7 +589,7 @@ void water_mon_task(void *pvParameters)
 			else
 				{
 				dv_program.p[activeDV].w_prog[activeNO].qwater = qwater / 1000;
-				ESP_LOGI(TAG, "Watering ON on DV%d - %d started @%02d:%02d - %llu", activeDV, activeNO, dv_program.p[activeDV].w_prog[activeNO].starth, dv_program.p[activeDV].w_prog[activeNO].startm, qwater / 1000);
+				//ESP_LOGI(TAG, "Watering ON on DV%d - %d started @%02d:%02d - %llu", activeDV, activeNO, dv_program.p[activeDV].w_prog[activeNO].starth, dv_program.p[activeDV].w_prog[activeNO].startm, qwater / 1000);
 				sprintf(mqttbuf, "%s\1won\1%d\1%d\1%d\1%d\1%d\1", WATERING_STATE, activeDV, activeNO, dv_program.p[activeDV].w_prog[activeNO].starth, dv_program.p[activeDV].w_prog[activeNO].startm, dv_program.p[activeDV].w_prog[activeNO].qwater);
 				}
 
@@ -643,7 +643,7 @@ static int get_act_state(int dvnum)
 		for(i = 0; i < 3; i++)
 			{
 			get_dv_adc_values(&dv_current);
-			ESP_LOGI(TAG, "DV%d, %s %d", dvnum, op, dv_current);
+			//ESP_LOGI(TAG, "DV%d, %s %d", dvnum, op, dv_current);
 			c_med += dv_current;
 			}
 		gpio_set_level(PINMOT_A1, PIN_OFF);
@@ -713,7 +713,7 @@ void register_waterop()
 #endif
 
    	activeNO = -1;
-   	wpday = 2;
+   	wpday = WPDAY;
    	//get_dv_state();
 	watering_status = WATER_OFF;
 	waterop_args.op = arg_str1(NULL, NULL, "<op>", "type of operation");
@@ -746,7 +746,7 @@ void register_waterop()
     	}
     read_program(&dv_program);
     read_program_status(0);
-	xTaskCreate(water_mon_task, "wmon_task", 4096, NULL, 5, &water_task_handle);
+	xTaskCreate(water_mon_task, "wmon_task", 8192, NULL, 5, &water_task_handle);
 	if(!water_task_handle)
 		{
 		ESP_LOGE(TAG, "Unable to start watering monitor task");
@@ -823,7 +823,7 @@ static int read_program_status(int mq)
 				if(mq)
 					{
 					sprintf(bufr, "%d\1%d\1%d\1%s\1%s\1%d\1%d\1", dv_no, prog_no, lqwater, eff_start, eff_stop, end_status, end_fault);
-					sprintf(mqttbuf, "%s\1%s\1", PROG_HISTORY, bufr);
+					sprintf(mqttbuf, "%s\1prog\1%s\1", PROG_HISTORY, bufr);
 					publish_state_a(mqttbuf, 1, 0);
 					}
 				i++;
@@ -1045,8 +1045,15 @@ static int start_watering(int idx, int w_count)
 	//set pump online
 	if(pump_operational(PUMP_ONLINE) == ESP_OK)
 		{
-		//wait 1 sec for pressure > max limit
-		vTaskDelay(1000 / portTICK_PERIOD_MS);
+		//wait 2 sec and more for pressure > min limit
+		//because pump_mon_task runs every 2 sec if pump OFFLINE
+		//vTaskDelay(2200 / portTICK_PERIOD_MS);
+		for(int i = 0; i < 10; i++)
+			{
+			if(get_pump_state_value()== PUMP_ON)
+				break;
+			vTaskDelay(500 / portTICK_PERIOD_MS);
+			}
 		if(pump_pressure_kpa > pump_min_lim)
 			{
 			dvop = open_dv(dv_program.p[idx].dv);
@@ -1055,7 +1062,7 @@ static int start_watering(int idx, int w_count)
 				ESP_LOGI(TAG, "open DV%d OK", dv_program.p[idx].dv);
 				//now wait for pressure to fall between max and min limit
 				vTaskDelay(1000 / portTICK_PERIOD_MS);
-				if(pump_pressure_kpa > pump_max_lim) //?????
+				if(pump_pressure_kpa > pump_max_lim)
 					{
 					ESP_LOGI(TAG, "Error! DV%d - pump pressure too high: %d", dv_program.p[idx].dv, pump_pressure_kpa);
 					dv_program.p[idx].w_prog[w_count].cs = START_ERROR;
@@ -1140,6 +1147,11 @@ static int stop_watering(int idx, int no, int reason)
 			dv_program.p[idx].w_prog[no].fault = ret;
 			}
 		}
+	time_t ltime;
+	struct tm tminfo;
+	ltime = time(NULL);
+	localtime_r(&ltime, &tminfo);
+	memcpy(&dv_program.p[idx].w_prog[no].eff_stop, &tminfo, sizeof(struct tm));
 	dv_program.p[idx].w_prog[no].qwater = qwater / 1000;
 	pump_operational(PUMP_OFFLINE);
 	watering_status = WATER_OFF;

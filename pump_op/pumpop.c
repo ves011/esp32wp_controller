@@ -430,6 +430,10 @@ void get_pump_values(int *p_state, int *p_status, int *p_current, int *p_current
 	*p_press = pump_pressure_kpa;
 	*p_debit = pump_debit;
 	}
+int get_pump_state_value()
+	{
+	return pump_state;
+	}
 int start_pump(int from)
 	{
 	esp_err_t ret = ESP_OK;
@@ -708,17 +712,16 @@ void register_pumpop()
         .argtable = &pumpop_args
     	};
     ESP_ERROR_CHECK(esp_console_cmd_register(&pumpop_cmd));
-    get_pump_state();
-    qmeter_ts = last_qmeter_ts = 0;
-    config_qmeter_timer();
     saved_t_water = 0;
     int rr = esp_reset_reason();
-    if(rr == ESP_RST_POWERON)
+    if(rr == ESP_RST_POWERON || rr == ESP_RST_BROWNOUT)
     	total_qwater = 0;
     ESP_LOGI(TAG, "reset reason: %d", rr);
     read_t_water();
-
-    xTaskCreate(pump_mon_task, "pump_task", 4096, NULL, 5, &pump_task_handle);
+    get_pump_state();
+    qmeter_ts = last_qmeter_ts = 0;
+    config_qmeter_timer();
+    xTaskCreate(pump_mon_task, "pump_task", 8192, NULL, 5, &pump_task_handle);
 	if(!pump_task_handle)
 		{
 		ESP_LOGE(TAG, "Unable to start pump monitor task");
@@ -905,7 +908,7 @@ void pump_mon_task(void *pvParameters)
 		// else loop every 100 msec
 		if(pump_status != PUMP_ONLINE)
 			{
-			pcount = 3;
+			pcount = 1;
 			vTaskDelay(2000 / portTICK_PERIOD_MS);
 			//total_qwater++;
 			}

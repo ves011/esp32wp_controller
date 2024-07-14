@@ -44,8 +44,8 @@
 /** file storing total water consumed */
 #define TWATER_FILE				"twater.txt"
 
-#define DEFAULT_PRES_MIN_LIMIT		300
-#define DEFAULT_PRES_MAX_LIMIT		370
+#define DEFAULT_PRES_MIN_LIMIT		100
+#define DEFAULT_PRES_MAX_LIMIT		340
 #define DEFAULT_PUMP_CURRENT_LIMIT	5000
 #define DEFAULT_OVERP_TIME_LIMIT	10
 #define DEFAULT_VOID_RUN_COUNT		20
@@ -112,6 +112,6 @@ int pump_operational(int po);
 void pump_mon_task(void *pvParameters);
 void process_adc_current(minmax_t *min, minmax_t *max);
 void get_pump_values(int *p_state, int *p_status, int *p_current, int *p_current_lim, int *p_min_pres, int *p_max_pres, int *p_press, int *p_debit);
-
+int get_pump_state_value();
 
 #endif /* PUMP_OP_PUMPOP_H_ */

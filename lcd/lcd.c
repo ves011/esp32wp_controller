@@ -41,7 +41,7 @@ QueueHandle_t ui_cmd_q;
 int lv_timer_stop;
 static uint32_t active_screen;
 static lv_disp_t *disp;
-static TaskHandle_t lvgl_task_handle, ui_task_handle;
+static TaskHandle_t ui_task_handle;
 
 extern int init_completed;
 
@@ -101,15 +101,6 @@ static void increase_lvgl_tick(void *arg)
     lv_tick_inc(LVGL_TICK_PERIOD_MS);
 	}
 
-/*static bool IRAM_ATTR inactivity_timer_callback(gptimer_handle_t c_timer, const gptimer_alarm_event_data_t *edata, void *args)
-	{
-	msg_t msg;
-    BaseType_t high_task_awoken = pdFALSE;
-    msg.source = INACT_TIME;
-	xQueueSendFromISR(ui_cmd_q, &msg, NULL);
-    return high_task_awoken == pdTRUE; // return whether we need to yield at the end of ISR
-	}
-*/
 static void inactivity_timer_callback(void *args)
 	{
 	msg_t msg;
@@ -158,14 +149,14 @@ void lcd_init(void)
     static lv_disp_draw_buf_t disp_buf; // contains internal graphic buffer(s) called draw buffer(s)
     static lv_disp_drv_t disp_drv;      // contains callback functions
     lv_timer_stop = 0;
-    ESP_LOGI(TAG, "Turn off LCD backlight");
+    //ESP_LOGI(TAG, "Turn off LCD backlight");
     gpio_config_t bk_gpio_config = {
         .mode = GPIO_MODE_OUTPUT,
         .pin_bit_mask = 1ULL << LCD_BK_LIGHT
     };
     ESP_ERROR_CHECK(gpio_config(&bk_gpio_config));
 
-    ESP_LOGI(TAG, "Initialize SPI bus");
+    //ESP_LOGI(TAG, "Initialize SPI bus");
     spi_bus_config_t buscfg = {
         .sclk_io_num = LCD_SCLK,
         .mosi_io_num = LCD_MOSI,
@@ -176,7 +167,7 @@ void lcd_init(void)
     };
     ESP_ERROR_CHECK(spi_bus_initialize(LCD_HOST, &buscfg, SPI_DMA_CH_AUTO));
 
-    ESP_LOGI(TAG, "Install panel IO");
+    //ESP_LOGI(TAG, "Install panel IO");
     esp_lcd_panel_io_handle_t io_handle = NULL;
     esp_lcd_panel_io_spi_config_t io_config = {
         .dc_gpio_num = LCD_DC,
@@ -198,7 +189,7 @@ void lcd_init(void)
         .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_BGR,
         .bits_per_pixel = 16,
     };
-    ESP_LOGI(TAG, "Install ILI9341 panel driver");
+    //ESP_LOGI(TAG, "Install ILI9341 panel driver");
     ESP_ERROR_CHECK(esp_lcd_new_panel_ili9341(io_handle, &panel_config, &panel_handle));
 
 
@@ -209,10 +200,10 @@ void lcd_init(void)
 
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
 
-    ESP_LOGI(TAG, "Turn on LCD backlight");
+    //ESP_LOGI(TAG, "Turn on LCD backlight");
     gpio_set_level(LCD_BK_LIGHT, LCD_BK_LIGHT_OFF_LEVEL);
 
-    ESP_LOGI(TAG, "Initialize LVGL library");
+    //ESP_LOGI(TAG, "Initialize LVGL library");
     lv_init();
     // alloc draw buffers used by LVGL
     // it's recommended to choose the size of the draw buffer(s) to be at least 1/10 screen sized
@@ -223,7 +214,7 @@ void lcd_init(void)
     // initialize LVGL draw buffers
     lv_disp_draw_buf_init(&disp_buf, buf1, buf2, LCD_H_RES * 20);
 
-    ESP_LOGI(TAG, "Register display driver to LVGL");
+    //ESP_LOGI(TAG, "Register display driver to LVGL");
     lv_disp_drv_init(&disp_drv);
     disp_drv.hor_res = LCD_H_RES;
     disp_drv.ver_res = LCD_V_RES;
@@ -286,7 +277,7 @@ void lcd_init(void)
 
     lv_style_set_transition(&btn_press, &trans);
 
-    ESP_LOGI(TAG, "Install LVGL tick timer");
+    //ESP_LOGI(TAG, "Install LVGL tick timer");
     // Tick interface for LVGL (using esp_timer to generate 2ms periodic event)
     const esp_timer_create_args_t lvgl_tick_timer_args = {
         .callback = &increase_lvgl_tick,
@@ -309,14 +300,7 @@ void lcd_init(void)
     active_screen = 0;
 
     config_inactivity_timer();
-    /*
-    xTaskCreatePinnedToCore(lvgl_task, "lvgl_task", 8192, NULL, 10, &lvgl_task_handle, 1);
-	if(!lvgl_task_handle)
-		{
-		ESP_LOGE(TAG, "Unable to start lvgl task");
-		esp_restart();
-		}
-	*/
+
 	xTaskCreatePinnedToCore(ui_task, "ui_task", 8192, NULL, 8, &ui_task_handle, 1);
 	if(!ui_task_handle)
 		{

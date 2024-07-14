@@ -13,7 +13,7 @@
 #define DV2						2
 #define DV3						3
 #define DVCOUNT					4
-#define WATERDAY				2
+#define WPDAY					2
 
 /*
 	#define PINEN_DV0				(6)
@@ -134,7 +134,7 @@ typedef struct
 		struct
 			{
 			int dv;
-			w_prog_t w_prog[2];
+			w_prog_t w_prog[WPDAY];
 			} p[DVCOUNT];
 		} dvprogram_t;
 		/*

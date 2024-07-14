@@ -75,13 +75,13 @@ void do_boot_screen()
 				switch(msg.val)
 					{
 					case 0:
-						strcat(bmsg, "spiffs, nvs - initit completed ");
+						strcat(bmsg, "LCD init completed ");
 						break;
 					case 1:
-						strcat(bmsg, "connected to network ");
+						strcat(bmsg, "spiffs, nvs - initit completed ");
 						break;
 					case 2:
-						strcat(bmsg, "tcp log init ");
+						strcat(bmsg, "connected to network ");
 						break;
 					case 3:
 						strcat(bmsg, "NTP sync task created ");
@@ -93,7 +93,7 @@ void do_boot_screen()
 						strcat(bmsg, "system commands registered ");
 						break;
 					case 6:
-						strcat(bmsg, "registering pump operation ");
+						strcat(bmsg, "pump operation registered");
 						break;
 					case 7:
 						strcat(bmsg, "registering water op ");
