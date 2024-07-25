@@ -70,7 +70,7 @@
 #define START_WATERING_ERROR	10
 #define STOP_WATERING_ERROR		11
 
-#define RESET_PROGRAM_H			15
+#define RESET_PROGRAM_H			0
 #define RESET_PROGRAM_M			22
 
 #define FAULT_PUMP				10

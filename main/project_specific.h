@@ -12,10 +12,17 @@
 #ifndef MAIN_PROJECT_SPECIFIC_H_
 #define MAIN_PROJECT_SPECIFIC_H_
 
-#define WITH_CONSOLE
+#define TEST_BUILD 0
+#if(TEST_BUILD == 1)
+	#define WITH_CONSOLE
+	#define TEST1
+	#define CTRL_DEV_ID					100
+#else
+	#define CTRL_DEV_ID					1
+#endif
 
 #define ACTIVE_CONTROLLER			WP_CONTROLLER
-#define CTRL_DEV_ID					2
+
 
 #define ADC_AD7811
 //#define ADC_ESP32

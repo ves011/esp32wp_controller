@@ -412,7 +412,7 @@ toal water               = %llu\n"
 			pump_state, opstate, pump_pressure_kpa, psensor_mv, pump_min_lim, pump_max_lim, pump_current_limit, kpa0_offset, pump_current, overp_time_limit, void_run_count, pump_debit, total_qwater);
 	sprintf(msg, "%s\1%d\1%d\1%d\1%d\1%d\1%d\1%d\1%d\1%d\1%d\1%d\1%llu",
 			PUMP_STATE, pump_state, pump_status, pump_current, pump_pressure_kpa, kpa0_offset, pump_min_lim, pump_max_lim, pump_current_limit, overp_time_limit, void_run_count, pump_debit, total_qwater);
-	publish_state(msg, 1, 0);
+	publish_topic(TOPIC_STATE, msg, 1, 0);
 	msg_t msg_ui;
 	msg_ui.source = PUMP_VAL_CHANGE;
 	xQueueSend(ui_cmd_q, &msg_ui, 0);
@@ -884,7 +884,7 @@ void pump_mon_task(void *pvParameters)
 
 				{
 				sprintf(msg, "%s\1%d\1%d\1%d\1%d\1%d\1%llu", PUMP_STATE, pump_state, pump_status, pump_current, pump_pressure_kpa, pump_debit, total_qwater/1000);
-				publish_monitor(msg, 1, 0);
+				publish_topic(TOPIC_MONITOR, msg, 1, 0);
 				//ESP_LOGI(TAG, "Pump state running:%d, pressure:%d(kPa), current:%d(mA), debit:%d, f(debit):%d, q_water:%llu, loop:%lu", pump_state, pump_pressure_kpa, pump_current, pump_debit, qmeter_pc_sec, total_qwater/1000, loop);
 				saved_pump_state = pump_state;
 				saved_pump_status = pump_status;
@@ -962,15 +962,29 @@ static int read_qcal()
 int save_t_water(uint64_t total_qw)
 	{
 	int ret = ESP_FAIL;
-	char buf[64];
-	FILE *f = fopen(BASE_PATH"/"TWATER_FILE, "w");
+	FILE *f = NULL;
+	char buf[64], bufw[64];
+	buf[0] = 0;
+	f = fopen(BASE_PATH"/"TWATER_FILE, "r");
 	if(f)
 		{
-		struct tm tminfo;
-		time_t ltime;
-		ltime = time(NULL);
-		localtime_r(&ltime, &tminfo);
-		sprintf(buf, "%4d-%02d-%02dT%02d:%02d > %llu", tminfo.tm_year + 1900, tminfo.tm_mon + 1, tminfo.tm_mday, tminfo.tm_hour, tminfo.tm_min, total_qw);
+		if(fgets(buf, 64, f))
+			buf[19] = 0;
+		fclose(f);
+		}
+	f = fopen(BASE_PATH"/"TWATER_FILE, "w");
+	if(f)
+		{
+		if(buf[0] == 0)
+			{
+			struct tm tminfo;
+			time_t ltime;
+			ltime = time(NULL);
+			localtime_r(&ltime, &tminfo);
+			sprintf(buf, "%4d-%02d-%02dT%02d:%02d > ", tminfo.tm_year + 1900, tminfo.tm_mon + 1, tminfo.tm_mday, tminfo.tm_hour, tminfo.tm_min);
+			}
+		sprintf(bufw, "%llu\n", total_qw);
+		strcat(buf, bufw);
 		if(fputs(buf, f) != EOF)
 			ret = ESP_OK;
 		fclose(f);

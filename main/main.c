@@ -181,8 +181,8 @@ void app_main(void)
 	//ESP_LOGI(TAG, "NTP Sync task / %lu", esp_get_free_heap_size());
 	msg.val = 3;
     xQueueSend(ui_cmd_q, &msg, 0);
-	if(mqtt_start() == ESP_OK)
-		register_mqtt();
+	if(mqtt_start() != ESP_OK)
+		esp_restart();
 	//ESP_LOGI(TAG, "MQTT task / %lu", esp_get_free_heap_size());
 	msg.val = 4;
     xQueueSend(ui_cmd_q, &msg, 0);
@@ -230,8 +230,9 @@ void app_main(void)
 #if ACTIVE_CONTROLLER == WATER_CONTROLLER || ACTIVE_CONTROLLER == WP_CONTROLLER
 	msg.val = 7;
     xQueueSend(ui_cmd_q, &msg, 0);
+#ifndef TEST1
 	register_waterop();
-
+#endif
 #endif
 	controller_op_registered = 1;
 	msg.val = 8;

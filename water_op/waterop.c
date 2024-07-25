@@ -130,8 +130,8 @@ int open_dv(int dvnum)
 				msg_ui.val = dvnum;
 				msg_ui.source = WATER_DV_OP;
 				xQueueSend(ui_cmd_q, &msg_ui, 0);
-				sprintf(mqttbuf, "%s\1%d\1%d\1", DVOP, dvnum, dvconfig[dvnum].state);
-				publish_monitor_a(mqttbuf, 1, 0);
+				sprintf(mqttbuf, "%s\1%d\1%d\1%d\1", DVOP, dvnum, dvconfig[dvnum].state, i);
+				publish_topic(TOPIC_MONITOR_A, mqttbuf, 0, 0);
 				vTaskDelay(1000 / portTICK_PERIOD_MS);
 				}
 			if(coff >= DV_CURRENT_OFF_COUNT)
@@ -181,7 +181,7 @@ int open_dv(int dvnum)
 	msg_ui.val = dvnum;
 	xQueueSend(ui_cmd_q, &msg_ui, 0);
 	sprintf(mqttbuf, "%s\1%d\1%d\1", DVSTATE, dvnum, dvconfig[dvnum].state);
-	publish_monitor_a(mqttbuf, 1, 0);
+	publish_topic(TOPIC_MONITOR_A, mqttbuf, 0, 0);
 	return ret;
 	}
 int close_dv(int dvnum)
@@ -208,8 +208,8 @@ int close_dv(int dvnum)
 				msg_ui.source = WATER_DV_OP;
 				msg_ui.val = dvnum;
 				xQueueSend(ui_cmd_q, &msg_ui, 0);
-				sprintf(mqttbuf, "%s\1%d\1%d\1", DVOP, dvnum, dvconfig[dvnum].state);
-				publish_monitor_a(mqttbuf, 1, 0);
+				sprintf(mqttbuf, "%s\1%d\1%d\1%d\1", DVOP, dvnum, dvconfig[dvnum].state, i);
+				publish_topic(TOPIC_MONITOR_A, mqttbuf, 0, 0);
 				vTaskDelay(1000 / portTICK_PERIOD_MS);
 				}
 
@@ -260,7 +260,7 @@ int close_dv(int dvnum)
 	msg_ui.val = dvnum;
 	xQueueSend(ui_cmd_q, &msg_ui, 0);
 	sprintf(mqttbuf, "%s\1%d\1%d\1", DVSTATE, dvnum, dvconfig[dvnum].state);
-	publish_monitor_a(mqttbuf, 1, 0);
+	publish_topic(TOPIC_MONITOR_A, mqttbuf, 0, 0);
 	return ret;
 	}
 static void config_dv_gpio(void)
@@ -360,7 +360,7 @@ int do_dvop(int argc, char **argv)
 				}
 		    }
 		    */
-		publish_state_a(mqttbuf, 1, 0);
+		publish_topic(TOPIC_STATE_A, mqttbuf, 1, 0);
     	}
     else if(strcmp(waterop_args.op->sval[0], "resetps") == 0)
     	{
@@ -394,7 +394,7 @@ int do_dvop(int argc, char **argv)
 											dv_program.p[i].w_prog[j].qwater, dv_program.p[i].w_prog[j].cs, dv_program.p[i].w_prog[j].fault);
     				}
     			}
-    		publish_state_a(mqttbuf, 1, 0);
+    		publish_topic(TOPIC_STATE_A, mqttbuf, 1, 0);
     		}
     	else
     		{
@@ -529,7 +529,7 @@ void water_mon_task(void *pvParameters)
 							qwater = 0;
 							}
 						sprintf(mqttbuf, "%s\1%d\1%d\1%d\1%d\1", WATERING_START, dv_program.p[i].dv, dv_program.p[i].w_prog[j].no, dv_program.p[i].w_prog[j].cs, dv_program.p[i].w_prog[j].fault);
-						publish_monitor_a(mqttbuf, 1, 0);
+						publish_topic(TOPIC_MONITOR_A, mqttbuf, 0, 0);
 						}
 					else if(timem >= dv_program.p[i].w_prog[j].stoph * 60 + dv_program.p[i].w_prog[j].stopm &&
 							dv_program.p[i].w_prog[j].cs == IN_PROGRESS)
@@ -539,7 +539,7 @@ void water_mon_task(void *pvParameters)
 							ESP_LOGI(TAG, "Watering program for DV%d - %d could not be stopped", dv_program.p[i].dv, dv_program.p[i].w_prog[j].no);
 
 						sprintf(mqttbuf, "%s\1%d\1%d\1%d\1%d\1", WATERING_STOP, dv_program.p[i].dv, dv_program.p[i].w_prog[j].no, dv_program.p[i].w_prog[j].cs, dv_program.p[i].w_prog[j].fault);
-						publish_monitor_a(mqttbuf, 1, 0);
+						publish_topic(TOPIC_MONITOR_A, mqttbuf, 0, 0);
 						}
 					}
 				}
@@ -593,7 +593,7 @@ void water_mon_task(void *pvParameters)
 				sprintf(mqttbuf, "%s\1won\1%d\1%d\1%d\1%d\1%d\1", WATERING_STATE, activeDV, activeNO, dv_program.p[activeDV].w_prog[activeNO].starth, dv_program.p[activeDV].w_prog[activeNO].startm, dv_program.p[activeDV].w_prog[activeNO].qwater);
 				}
 
-			publish_monitor_a(mqttbuf, 1, 0);
+			publish_topic(TOPIC_MONITOR_A, mqttbuf, 0, 0);
 			saved_status = watering_status;
 			savedDV = activeDV;
 			saved_qwater = qwater;
@@ -799,7 +799,7 @@ static int read_program_status(int mq)
 			if(mq)
 				{
 				sprintf(mqttbuf, "%s\1start\1", PROG_HISTORY);
-				publish_state_a(mqttbuf, 1, 0);
+				publish_topic(TOPIC_STATE_A, mqttbuf, 1, 0);
 				}
 			struct tm tinfo_start, tinfo_stop;
 			while(!feof(f))
@@ -817,21 +817,21 @@ static int read_program_status(int mq)
 					{
 					memcpy(&dv_program.p[dv_no].w_prog[prog_no].eff_start, &tinfo_start, sizeof(struct tm));
 					memcpy(&dv_program.p[dv_no].w_prog[prog_no].eff_stop, &tinfo_stop, sizeof(struct tm));
-					dv_program.p[dv_no].w_prog[prog_no].cs = end_status;
-					dv_program.p[dv_no].w_prog[prog_no].fault = end_fault;
+					//dv_program.p[dv_no].w_prog[prog_no].cs = end_status;
+					//dv_program.p[dv_no].w_prog[prog_no].fault = end_fault;
 					}
 				if(mq)
 					{
 					sprintf(bufr, "%d\1%d\1%d\1%s\1%s\1%d\1%d\1", dv_no, prog_no, lqwater, eff_start, eff_stop, end_status, end_fault);
 					sprintf(mqttbuf, "%s\1prog\1%s\1", PROG_HISTORY, bufr);
-					publish_state_a(mqttbuf, 1, 0);
+					publish_topic(TOPIC_STATE_A, mqttbuf, 1, 0);
 					}
 				i++;
 				}
 			if(mq)
 				{
 				sprintf(mqttbuf, "%s\1end\1%d\1", PROG_HISTORY, i);
-				publish_state_a(mqttbuf, 1, 0);
+				publish_topic(TOPIC_STATE_A, mqttbuf, 1, 0);
 				}
 			ret = ESP_OK;
 			fclose(f);
@@ -839,13 +839,13 @@ static int read_program_status(int mq)
 		else
 			{
 			sprintf(mqttbuf, "%s\1err_open\1", PROG_HISTORY);
-			publish_state_a(mqttbuf, 1, 0);
+			publish_topic(TOPIC_STATE_A, mqttbuf, 1, 0);
 			}
 		}
 	else
 		{
 		sprintf(mqttbuf, "%s\1not_found\1", PROG_HISTORY);
-		publish_state_a(mqttbuf, 1, 0);
+		publish_topic(TOPIC_STATE_A, mqttbuf, 1, 0);
 		ret = ESP_ERR_NOT_FOUND;
 		}
 	return ret;
@@ -986,7 +986,7 @@ static int write_status(int idx, int no)
 	else
 		strcpy(strtime_e, "0000-00-00T00:00:00");
 
-	sprintf(dvpbuf, "%2d %2d %4d %20s %20s, %2d %2d\n", dv_program.p[idx].dv, dv_program.p[idx].w_prog[no].no, dv_program.p[idx].w_prog[no].qwater,
+	sprintf(dvpbuf, "%2d %2d %4d %20s %20s %2d %2d\n", dv_program.p[idx].dv, dv_program.p[idx].w_prog[no].no, dv_program.p[idx].w_prog[no].qwater,
 										 strtime_b, strtime_e, dv_program.p[idx].w_prog[no].cs, dv_program.p[idx].w_prog[no].fault);
 	/*
 	if(dv_program.p[idx].w_prog[no].cs == IN_PROGRESS || dv_program.p[idx].w_prog[no].cs == START_ERROR)
