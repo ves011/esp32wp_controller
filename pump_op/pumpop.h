@@ -50,7 +50,7 @@
 #define DEFAULT_OVERP_TIME_LIMIT	10
 #define DEFAULT_VOID_RUN_COUNT		20
 
-#define SAVE_TWATER_TIME			32 // = hour *60 + min
+#define SAVE_TWATER_TIME			32 // = hour *60 + min --> 00:32
 
 
 typedef struct

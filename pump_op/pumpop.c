@@ -412,7 +412,7 @@ toal water               = %llu\n"
 			pump_state, opstate, pump_pressure_kpa, psensor_mv, pump_min_lim, pump_max_lim, pump_current_limit, kpa0_offset, pump_current, overp_time_limit, void_run_count, pump_debit, total_qwater);
 	sprintf(msg, "%s\1%d\1%d\1%d\1%d\1%d\1%d\1%d\1%d\1%d\1%d\1%d\1%llu",
 			PUMP_STATE, pump_state, pump_status, pump_current, pump_pressure_kpa, kpa0_offset, pump_min_lim, pump_max_lim, pump_current_limit, overp_time_limit, void_run_count, pump_debit, total_qwater);
-	publish_topic(TOPIC_STATE, msg, 1, 0);
+	publish_topic(TOPIC_STATE, msg, 0, 0);
 	msg_t msg_ui;
 	msg_ui.source = PUMP_VAL_CHANGE;
 	xQueueSend(ui_cmd_q, &msg_ui, 0);
@@ -805,6 +805,8 @@ void pump_mon_task(void *pvParameters)
 											void_run++;
 										else
 											void_run = 0;
+										if(pump_debit > 0)
+											void_run = 0;
 										if(void_run > void_run_count)
 											{
 											ESP_LOGI(TAG, "void run overflow %lu, pump set to offline mode", void_run);
@@ -884,7 +886,7 @@ void pump_mon_task(void *pvParameters)
 
 				{
 				sprintf(msg, "%s\1%d\1%d\1%d\1%d\1%d\1%llu", PUMP_STATE, pump_state, pump_status, pump_current, pump_pressure_kpa, pump_debit, total_qwater/1000);
-				publish_topic(TOPIC_MONITOR, msg, 1, 0);
+				publish_topic(TOPIC_MONITOR, msg, 0, 0);
 				//ESP_LOGI(TAG, "Pump state running:%d, pressure:%d(kPa), current:%d(mA), debit:%d, f(debit):%d, q_water:%llu, loop:%lu", pump_state, pump_pressure_kpa, pump_current, pump_debit, qmeter_pc_sec, total_qwater/1000, loop);
 				saved_pump_state = pump_state;
 				saved_pump_status = pump_status;
@@ -921,10 +923,13 @@ void pump_mon_task(void *pvParameters)
 		time_t ltime;
 		ltime = time(NULL);
 		localtime_r(&ltime, &tminfo);
-		if(tminfo.tm_hour * 60 + tminfo.tm_min == SAVE_TWATER_TIME && !saved_t_water)
+		if(tminfo.tm_hour * 60 + tminfo.tm_min == SAVE_TWATER_TIME)
 			{
-			if(save_t_water(total_qwater) == ESP_OK)
-				saved_t_water = 1;
+			if(!saved_t_water)
+				{
+				if(save_t_water(total_qwater) == ESP_OK)
+					saved_t_water = 1;
+				}
 			}
 		else
 			saved_t_water = 0;

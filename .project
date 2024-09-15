@@ -2223,11 +2223,6 @@
 			<location>C:/dev/esp32/esp-idf-v5.1.2/components/wifi_provisioning/src/scheme_console.c</location>
 		</link>
 		<link>
-			<name>build/ide/esp_idf_components/wifi_provisioning/src/scheme_softap.c</name>
-			<type>1</type>
-			<location>C:/dev/esp32/esp-idf-v5.1.2/components/wifi_provisioning/src/scheme_softap.c</location>
-		</link>
-		<link>
 			<name>build/ide/esp_idf_components/wifi_provisioning/src/wifi_config.c</name>
 			<type>1</type>
 			<location>C:/dev/esp32/esp-idf-v5.1.2/components/wifi_provisioning/src/wifi_config.c</location>
@@ -3121,11 +3116,6 @@
 			<name>build/ide/esp_idf_components/wpa_supplicant/esp_supplicant/src/esp_eap_client.c</name>
 			<type>1</type>
 			<location>C:/dev/esp32/esp-idf-v5.1.2/components/wpa_supplicant/esp_supplicant/src/esp_eap_client.c</location>
-		</link>
-		<link>
-			<name>build/ide/esp_idf_components/wpa_supplicant/esp_supplicant/src/esp_hostap.c</name>
-			<type>1</type>
-			<location>C:/dev/esp32/esp-idf-v5.1.2/components/wpa_supplicant/esp_supplicant/src/esp_hostap.c</location>
 		</link>
 		<link>
 			<name>build/ide/esp_idf_components/wpa_supplicant/esp_supplicant/src/esp_owe.c</name>

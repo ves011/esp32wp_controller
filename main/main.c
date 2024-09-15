@@ -59,6 +59,7 @@ int controller_op_registered;
 
 int init_completed;
 
+/*
 esp_vfs_spiffs_conf_t conf_spiffs =
 	{
 	.base_path = BASE_PATH,
@@ -66,7 +67,7 @@ esp_vfs_spiffs_conf_t conf_spiffs =
 	.max_files = 5,
 	.format_if_mount_failed = true
 	};
-
+*/
 
 static void initialize_nvs(void)
 	{
@@ -138,7 +139,7 @@ void app_main(void)
     	}
 	gpio_reset_pin(bp_ctrl);
 	setenv("TZ","EET-2EEST,M3.4.0/03,M10.4.0/04",1);
-	//lcd_init();
+
 	TaskHandle_t lvgl_task_handle;
 	init_completed = 0;
 	xTaskCreatePinnedToCore(lvgl_task, "lvgl_task", 8192, NULL, 10, &lvgl_task_handle, 1);
@@ -160,7 +161,7 @@ void app_main(void)
 	tsync = 0;
 	wifi_join(DEFAULT_SSID, DEFAULT_PASS, JOIN_TIMEOUT_MS);
 	rw_params(PARAM_READ, PARAM_CONSOLE, &console_state);
-    tcp_log_task_handle = NULL;
+    //tcp_log_task_handle = NULL;
     tcp_log_evt_queue = NULL;
 	tcp_log_init();
 	esp_log_set_vprintf(my_log_vprintf);
@@ -177,7 +178,8 @@ void app_main(void)
 	//--------------------------------------------------------------------------//
 
 	// start task to sync local time with NTP server
-	xTaskCreate(ntp_sync, "NTP_sync_task", 4096, NULL, USER_TASK_PRIORITY, &ntp_sync_task_handle);
+	//xTaskCreate(ntp_sync, "NTP_sync_task", 4096, NULL, USER_TASK_PRIORITY, &ntp_sync_task_handle);
+	sync_NTP_time();
 	//ESP_LOGI(TAG, "NTP Sync task / %lu", esp_get_free_heap_size());
 	msg.val = 3;
     xQueueSend(ui_cmd_q, &msg, 0);
@@ -227,12 +229,12 @@ void app_main(void)
 #if ACTIVE_CONTROLLER == WESTA_CONTROLLER
 	register_westaop();
 #endif
-#if ACTIVE_CONTROLLER == WATER_CONTROLLER || ACTIVE_CONTROLLER == WP_CONTROLLER
+#if ACTIVE_CONTROLLER == WP_CONTROLLER
 	msg.val = 7;
     xQueueSend(ui_cmd_q, &msg, 0);
-#ifndef TEST1
+//#ifndef TEST1
 	register_waterop();
-#endif
+//#endif
 #endif
 	controller_op_registered = 1;
 	msg.val = 8;

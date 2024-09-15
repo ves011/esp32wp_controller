@@ -52,6 +52,7 @@ static struct {
     struct arg_str *start;
     struct arg_str *stop;
     struct arg_int *qwater;
+    struct arg_int *day_count;
     struct arg_end *end;
 } waterop_args;
 
@@ -299,14 +300,14 @@ int do_dvop(int argc, char **argv)
 	dvprogram_t pval;
 	char mqttbuf[256];
 	char buf[50], bufs[20];
+	if(strcmp(argv[0], "dv"))
+    	return 0;
 	int nerrors = arg_parse(argc, argv, (void **)&waterop_args);
     if (nerrors != 0)
     	{
         arg_print_errors(stderr, waterop_args.end, argv[0]);
         return 1;
     	}
-    if(strcmp(argv[0], "dv"))
-    	return 0;
 
     else if(strcmp(waterop_args.op->sval[0], "open") == 0)
     	{
@@ -360,7 +361,7 @@ int do_dvop(int argc, char **argv)
 				}
 		    }
 		    */
-		publish_topic(TOPIC_STATE_A, mqttbuf, 1, 0);
+		publish_topic(TOPIC_STATE_A, mqttbuf, 0, 0);
     	}
     else if(strcmp(waterop_args.op->sval[0], "resetps") == 0)
     	{
@@ -394,7 +395,7 @@ int do_dvop(int argc, char **argv)
 											dv_program.p[i].w_prog[j].qwater, dv_program.p[i].w_prog[j].cs, dv_program.p[i].w_prog[j].fault);
     				}
     			}
-    		publish_topic(TOPIC_STATE_A, mqttbuf, 1, 0);
+    		publish_topic(TOPIC_STATE_A, mqttbuf, 0, 0);
     		}
     	else
     		{
@@ -625,7 +626,7 @@ static int get_act_state(int dvnum)
 	char op[20];
 	int i, dv_current = 0, c_med, ret_state;
 	int coff = 0;
-	if(dvop_progress == DVOP_INPROGRESS)
+	if(dvop_progress == DVOP_INPROGRESS || TEST_BUILD == 1)
 		{
 		ret_state = dvconfig[dvnum].state;
 		}
@@ -722,6 +723,7 @@ void register_waterop()
 	waterop_args.start = arg_str0(NULL, NULL, "hh:mm", "start time");
 	waterop_args.stop = arg_str0(NULL, NULL, "hh:mm", "end time");
 	waterop_args.qwater = arg_int0(NULL, NULL, "<qwater>", "water quantity");
+	waterop_args.day_count = arg_int0(NULL, NULL, "<#day>", "every #day");
     waterop_args.end = arg_end(1);
     const esp_console_cmd_t dvop_cmd =
     	{
@@ -799,7 +801,7 @@ static int read_program_status(int mq)
 			if(mq)
 				{
 				sprintf(mqttbuf, "%s\1start\1", PROG_HISTORY);
-				publish_topic(TOPIC_STATE_A, mqttbuf, 1, 0);
+				publish_topic(TOPIC_STATE_A, mqttbuf, 0, 0);
 				}
 			struct tm tinfo_start, tinfo_stop;
 			while(!feof(f))
@@ -824,14 +826,14 @@ static int read_program_status(int mq)
 					{
 					sprintf(bufr, "%d\1%d\1%d\1%s\1%s\1%d\1%d\1", dv_no, prog_no, lqwater, eff_start, eff_stop, end_status, end_fault);
 					sprintf(mqttbuf, "%s\1prog\1%s\1", PROG_HISTORY, bufr);
-					publish_topic(TOPIC_STATE_A, mqttbuf, 1, 0);
+					publish_topic(TOPIC_STATE_A, mqttbuf, 0, 0);
 					}
 				i++;
 				}
 			if(mq)
 				{
 				sprintf(mqttbuf, "%s\1end\1%d\1", PROG_HISTORY, i);
-				publish_topic(TOPIC_STATE_A, mqttbuf, 1, 0);
+				publish_topic(TOPIC_STATE_A, mqttbuf, 0, 0);
 				}
 			ret = ESP_OK;
 			fclose(f);
@@ -839,13 +841,13 @@ static int read_program_status(int mq)
 		else
 			{
 			sprintf(mqttbuf, "%s\1err_open\1", PROG_HISTORY);
-			publish_topic(TOPIC_STATE_A, mqttbuf, 1, 0);
+			publish_topic(TOPIC_STATE_A, mqttbuf, 0, 0);
 			}
 		}
 	else
 		{
 		sprintf(mqttbuf, "%s\1not_found\1", PROG_HISTORY);
-		publish_topic(TOPIC_STATE_A, mqttbuf, 1, 0);
+		publish_topic(TOPIC_STATE_A, mqttbuf, 0, 0);
 		ret = ESP_ERR_NOT_FOUND;
 		}
 	return ret;
