@@ -26,6 +26,7 @@
 #include "esp_lcd_ili9341.h"
 #include <time.h>
 #include <sys/time.h>
+#include "project_specific.h"
 #include "common_defines.h"
 #include "external_defs.h"
 #include "lvgl.h"

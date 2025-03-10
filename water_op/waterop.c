@@ -13,7 +13,7 @@
 #include "driver/gpio.h"
 #include "driver/gpio_filter.h"
 #include "hal/gpio_types.h"
-#include "freertos/freertos.h"
+#include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "esp_netif.h"
@@ -22,6 +22,7 @@
 #include "sys/stat.h"
 #include "driver/gptimer.h"
 #include "esp_timer.h"
+#include "project_specific.h"
 #include "common_defines.h"
 #include "gpios.h"
 #include "mqtt_client.h"
@@ -94,7 +95,7 @@ int get_dv_adc_values(int *dv_mv)
 		return ret;
 		}
 	*/
-	if(adc_get_data(MOTSENSE_CHN, dvv, 5) == ESP_OK)
+	if(adc_get_data_7911(MOTSENSE_CHN, dvv, 5) == ESP_OK)
 		*dv_mv = (dvv[0] + dvv[1] + dvv[2]  + dvv[3]  + dvv[4]) / 5;
 	else
 		ret = ESP_FAIL;
@@ -311,14 +312,14 @@ int do_dvop(int argc, char **argv)
 
     else if(strcmp(waterop_args.op->sval[0], "open") == 0)
     	{
-    	if(waterop_args.dv->count == 1)
+		if(waterop_args.dv->count == 1)
 			open_dv(waterop_args.dv->ival[0]);
 		else
 			ESP_LOGI(TAG, "open: no #dv provided");
     	}
     else if(strcmp(waterop_args.op->sval[0], "close") == 0)
     	{
-    	if(waterop_args.dv->count == 1)
+		if(waterop_args.dv->count == 1)
 			close_dv(waterop_args.dv->ival[0]);
 		else
 			ESP_LOGI(TAG, "close: no #dv provided");
@@ -399,7 +400,7 @@ int do_dvop(int argc, char **argv)
     		}
     	else
     		{
-    		if(waterop_args.w_count->count == 0)
+			if(waterop_args.w_count->count == 0)
 				ESP_LOGI(TAG, "program: watering number not provided");
 			else
 				{
@@ -471,7 +472,7 @@ int do_dvop(int argc, char **argv)
     else if(strcmp(waterop_args.op->sval[0], "wpday") == 0)
     	{
     	int no;
-    	if(waterop_args.w_count->count && waterop_args.w_count->ival[0] >= 0 && waterop_args.w_count->ival[0] <= 2)
+		if(waterop_args.w_count->count && waterop_args.w_count->ival[0] >= 0 && waterop_args.w_count->ival[0] <= 2)
     		{
     		no = waterop_args.w_count->ival[0];
    			for(int i = 0; i < DVCOUNT; i++)

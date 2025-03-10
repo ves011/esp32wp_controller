@@ -52,11 +52,12 @@
 
 #define SAVE_TWATER_TIME			32 // = hour *60 + min --> 00:32
 
-
+/*
 typedef struct
 	{
 	int v_offset;
 	} psensor_offset_t;
+*/
 
 typedef struct
     {

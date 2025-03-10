@@ -12,21 +12,23 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "sys/reent.h"
 #include "esp_console.h"
 #include "argtable3/argtable3.h"
 #include "driver/gpio.h"
 #include "hal/gpio_types.h"
-#include "freertos/freertos.h"
+#include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
+#include "esp_mac.h"
 #include "esp_netif.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "sys/stat.h"
 #include "esp_spiffs.h"
 #include "mqtt_client.h"
-#include "common_defines.h"
 #include "project_specific.h"
+#include "common_defines.h"
 #include "external_defs.h"
 #include "hal/adc_types.h"
 //#include "driver/timer.h"
@@ -43,6 +45,8 @@
 #endif
 #include "waterop.h"
 #include "pumpop.h"
+#include "pump_files.h"
+
 
 #if ACTIVE_CONTROLLER == PUMP_CONTROLLER ||	ACTIVE_CONTROLLER == WP_CONTROLLER
 static SemaphoreHandle_t pumpop_mutex;
@@ -60,9 +64,6 @@ static uint64_t qmeter_ts, last_qmeter_ts;
 RTC_NOINIT_ATTR  uint64_t total_qwater;
 static int qcal_a, qcal_b;
 static int saved_t_water;
-
-static int read_t_water();
-static int save_t_water(uint64_t total_qw);
 
 static const char *TAG = "PUMP OP";
 static QueueHandle_t pump_cmd_queue = NULL;
@@ -138,13 +139,13 @@ static int get_pump_adc_values(int *psensor_mv)
 	*psensor_mv = 0;
 	pump_current = 0;
 	//get pump current data
-	if((ret = adc_get_data(CURRENT_CHN, c_temp, nr_samp)) == ESP_OK)
+	if((ret = adc_get_data_7911(CURRENT_CHN, c_temp, nr_samp)) == ESP_OK)
 		{
 		//for(i = 0; i < NR_SAMPLES_PC; i++)
 		//	ESP_LOGI(TAG, "%d %d", i, c_temp[i]);
 		//get pressure sensor data
 		nr_samp = NR_SAMPLES_PS;
-		if((ret = adc_get_data(SENSOR_CHN, p_data, nr_samp)) == ESP_OK)
+		if((ret = adc_get_data_7911(SENSOR_CHN, p_data, nr_samp)) == ESP_OK)
 			{
 			//pressure sensor mv = mean of data
 			*psensor_mv = 0;
@@ -330,26 +331,28 @@ int get_pump_state(void)
 	{
 	esp_err_t ret = ESP_FAIL;
     pump_limits_t plimits;
-    psensor_offset_t offset;
+    int v_offset;
     int ps;
     char msg[80];
-    if(rw_params(PARAM_READ, PARAM_V_OFFSET, &offset) == ESP_OK)
+    if(rw_poffset(PARAM_READ, &v_offset) == ESP_OK)
+    //if(rw_params(PARAM_READ, PARAM_V_OFFSET, &offset) == ESP_OK)
     	{
-    	kpa0_offset = offset.v_offset;
+    	kpa0_offset = v_offset;
     	}
     else
     	{
     	kpa0_offset = 0;
     	}
     read_qcal();
-   	rw_params(PARAM_READ, PARAM_LIMITS, &plimits);
+    rw_plimits(PARAM_READ, &plimits);
+   	//rw_params(PARAM_READ, PARAM_LIMITS, &plimits);
    	pump_min_lim = plimits.min_val;
 	pump_max_lim = plimits.max_val;
 	pump_current_limit = plimits.faultc;
 	overp_time_limit = plimits.overp_lim;
 	void_run_count = plimits.void_run_count;
-
-	rw_params(PARAM_READ, PARAM_OPERATIONAL, &ps);
+	rw_poperational(PARAM_READ, &ps);
+	//rw_params(PARAM_READ, PARAM_OPERATIONAL, &ps);
 	pump_status = ps;
 	if(!pump_task_handle) // else values are updated every 2sec by pump_mon_task
 		{
@@ -464,7 +467,8 @@ int start_pump(int from)
 				pump_state = PUMP_ON;
 				pump_status = PUMP_FAULT;
 				int local_ps = pump_status;
-				rw_params(PARAM_WRITE, PARAM_OPERATIONAL, &local_ps);
+				rw_poperational(PARAM_WRITE, &local_ps);
+				//rw_params(PARAM_WRITE, PARAM_OPERATIONAL, &local_ps);
 				ret = ESP_FAIL;
 				}
 			else
@@ -490,7 +494,7 @@ int stop_pump(int from)
     	ESP_LOGI(TAG, "Pump ONLINE. Start/Stop controlled by monitor task");
     	ret = ESP_FAIL;
     	}
-    else
+	else
     	{
 		gpio_set_level(PUMP_ONOFF_PIN, PUMP_OFF);
 		vTaskDelay(500 / portTICK_PERIOD_MS);
@@ -514,7 +518,8 @@ int stop_pump(int from)
 				pump_state = PUMP_ON;
 				pump_status = PUMP_FAULT;
 				int local_ps = pump_status;
-				rw_params(PARAM_WRITE, PARAM_OPERATIONAL, &local_ps);
+				rw_poperational(PARAM_WRITE, &local_ps);
+				//rw_params(PARAM_WRITE, PARAM_OPERATIONAL, &local_ps);
 				ret = ESP_FAIL;
 				}
 			else
@@ -540,10 +545,9 @@ int pump_operational(int po)
 		{
 		pump_status = po;
 		int local_ps = pump_status;
-		if(rw_params(PARAM_WRITE, PARAM_OPERATIONAL, &local_ps) != ESP_OK)
-			{
+		if(rw_poperational(PARAM_WRITE, &local_ps) != ESP_OK)
+//		if(rw_params(PARAM_WRITE, PARAM_OPERATIONAL, &local_ps) != ESP_OK)
 			ESP_LOGI(TAG, "Operational status could not be updated: current value: %d", pump_status);
-			}
 		}
 	return ret;
 	}
@@ -551,7 +555,7 @@ int set_pump_0_offset()
 	{
 	esp_err_t ret = ESP_FAIL;
     int old_value;
-    psensor_offset_t v_offset;
+    int v_offset;
 
 	//printf("\nSet 0 offset for pressure sensor");
 	//printf("\nSensor should be already at 0 kPa pressure\n");
@@ -561,30 +565,33 @@ int set_pump_0_offset()
     	{
     	psensor_mv = local_ps_mv;
     	ESP_LOGI(TAG, " %d /", psensor_mv);
-    	v_offset.v_offset = 0;
-		ret = rw_params(PARAM_READ, PARAM_V_OFFSET, &v_offset);
+    	v_offset = 0;
+    	ret = rw_poffset(PARAM_READ, &v_offset);
+		//ret = rw_params(PARAM_READ, PARAM_V_OFFSET, &v_offset);
 		if(ret == ESP_OK)
 			{
-			old_value = v_offset.v_offset;
-			v_offset.v_offset = psensor_mv;
-			ret = rw_params(PARAM_WRITE, PARAM_V_OFFSET, &v_offset);
+			old_value = v_offset;
+			v_offset = psensor_mv;
+			ret = rw_poffset(PARAM_WRITE, &v_offset);
+			//ret = rw_params(PARAM_WRITE, PARAM_V_OFFSET, &v_offset);
 			if(ret == ESP_OK)
 				{
-				v_offset.v_offset = 0;
-				ret = rw_params(PARAM_READ, PARAM_V_OFFSET, &v_offset);
+				v_offset = 0;
+				ret = rw_poffset(PARAM_READ, &v_offset);
+				//ret = rw_params(PARAM_READ, PARAM_V_OFFSET, &v_offset);
 				if(ret != ESP_OK)
 					{
 					ESP_LOGI(TAG, "Error reading 0 offset value: %d / %s", ret, esp_err_to_name(ret));
 					}
 				else
-					ESP_LOGI(TAG, "0 offset value updated; new value = %d / old value = %d", v_offset.v_offset, old_value);
+					ESP_LOGI(TAG, "0 offset value updated; new value = %d / old value = %d", v_offset, old_value);
 				}
 			else
 				ESP_LOGI(TAG, "Error writing 0 offset value: %d / %s", ret, esp_err_to_name(ret));
 			}
 		else
 			{
-			ESP_LOGI(TAG, "Error getting current value");
+			ESP_LOGI(TAG, "Error getting current offset value");
 			}
     	}
 	return ret;
@@ -652,7 +659,8 @@ int do_pumpop(int argc, char **argv)
     		plimits.faultc = fc;
     		plimits.overp_lim = overpt;
 			plimits.void_run_count = vrc;
-    		rw_params(PARAM_WRITE, PARAM_LIMITS, &plimits);
+			rw_plimits(PARAM_WRITE, &plimits);
+    		//rw_params(PARAM_WRITE, PARAM_LIMITS, &plimits);
     		get_pump_state();
     		}
     	else
@@ -717,7 +725,13 @@ void register_pumpop()
     if(rr == ESP_RST_POWERON || rr == ESP_RST_BROWNOUT)
     	total_qwater = 0;
     ESP_LOGI(TAG, "reset reason: %d", rr);
-    read_t_water();
+    uint64_t tqw;
+    if(rw_twater(PARAM_READ, &tqw) == ESP_OK)
+    	{
+		if(total_qwater < tqw)
+			total_qwater = tqw;
+		}
+    //read_t_water();
     get_pump_state();
     qmeter_ts = last_qmeter_ts = 0;
     config_qmeter_timer();
@@ -754,7 +768,8 @@ void pump_mon_task(void *pvParameters)
 				if(stop_pump(1) == ESP_OK)
 					pump_status = PUMP_OFFLINE;
 				int local_ps = pump_status;
-				rw_params(PARAM_WRITE, PARAM_OPERATIONAL, &local_ps);
+				rw_poperational(PARAM_WRITE, &local_ps);
+				//rw_params(PARAM_WRITE, PARAM_OPERATIONAL, &local_ps);
 				}
 			else
 				{
@@ -767,7 +782,8 @@ void pump_mon_task(void *pvParameters)
 							{
 							pump_status = PUMP_OFFLINE;
 							int local_ps = pump_status;
-							rw_params(PARAM_WRITE, PARAM_OPERATIONAL, &local_ps);
+							rw_poperational(PARAM_WRITE, &local_ps);
+							//rw_params(PARAM_WRITE, PARAM_OPERATIONAL, &local_ps);
 							}
 						else
 							{
@@ -783,7 +799,8 @@ void pump_mon_task(void *pvParameters)
 						{
 						pump_status = PUMP_OFFLINE;
 						int local_ps = pump_status;
-						rw_params(PARAM_WRITE, PARAM_OPERATIONAL, &local_ps);
+						rw_poperational(PARAM_WRITE, &local_ps);
+						//rw_params(PARAM_WRITE, PARAM_OPERATIONAL, &local_ps);
 						}
 					}
 				if(pump_status == PUMP_ONLINE)
@@ -809,11 +826,12 @@ void pump_mon_task(void *pvParameters)
 											void_run = 0;
 										if(void_run > void_run_count)
 											{
-											ESP_LOGI(TAG, "void run overflow %lu, pump set to offline mode", void_run);
+											ESP_LOGI(TAG, "void run overflow %lu, pump set to offline mode", (unsigned long)void_run);
 											void_run = 0;
 											pump_status = PUMP_OFFLINE;
 											int local_ps = pump_status;
-											int ret = rw_params(PARAM_WRITE, PARAM_OPERATIONAL, &local_ps);
+											int ret = rw_poperational(PARAM_WRITE, &local_ps);
+											//int ret = rw_params(PARAM_WRITE, PARAM_OPERATIONAL, &local_ps);
 											if(ret != ESP_OK)
 												ESP_LOGI(TAG, "Operational status could not be updated: current value: %d", pump_status);
 											}
@@ -927,7 +945,8 @@ void pump_mon_task(void *pvParameters)
 			{
 			if(!saved_t_water)
 				{
-				if(save_t_water(total_qwater) == ESP_OK)
+				if(rw_twater(PARAM_WRITE, &total_qwater) == ESP_OK)
+				//if(save_t_water(total_qwater) == ESP_OK)
 					saved_t_water = 1;
 				}
 			}
@@ -964,57 +983,7 @@ static int read_qcal()
 	return ret;
 	}
 
-int save_t_water(uint64_t total_qw)
-	{
-	int ret = ESP_FAIL;
-	FILE *f = NULL;
-	char buf[64], bufw[64];
-	buf[0] = 0;
-	f = fopen(BASE_PATH"/"TWATER_FILE, "r");
-	if(f)
-		{
-		if(fgets(buf, 64, f))
-			buf[19] = 0;
-		fclose(f);
-		}
-	f = fopen(BASE_PATH"/"TWATER_FILE, "w");
-	if(f)
-		{
-		if(buf[0] == 0)
-			{
-			struct tm tminfo;
-			time_t ltime;
-			ltime = time(NULL);
-			localtime_r(&ltime, &tminfo);
-			sprintf(buf, "%4d-%02d-%02dT%02d:%02d > ", tminfo.tm_year + 1900, tminfo.tm_mon + 1, tminfo.tm_mday, tminfo.tm_hour, tminfo.tm_min);
-			}
-		sprintf(bufw, "%llu\n", total_qw);
-		strcat(buf, bufw);
-		if(fputs(buf, f) != EOF)
-			ret = ESP_OK;
-		fclose(f);
-		}
-	return ret;
-	}
-int read_t_water()
-	{
-	int ret = ESP_FAIL;
-	uint64_t total_qw = 0;
-	char buf[64];
-	FILE *f = fopen(BASE_PATH"/"TWATER_FILE, "r");
-	if(f)
-		{
-		if(fgets(buf, 64, f))
-			{
-			total_qw = atoll(buf + 18);
-			ret = ESP_OK;
-			}
-		fclose(f);
-		}
-	if(total_qwater < total_qw)
-		total_qwater = total_qw;
-	return ret;
-	}
+
 #if 0
 void process_adc_current(minmax_t *min, minmax_t *max)
 	{

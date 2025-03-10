@@ -52,22 +52,13 @@
 
 #include "wifi_credentials.h"
 
+QueueHandle_t dev_mon_queue = NULL;
 
 console_state_t console_state;
 int restart_in_progress;
 int controller_op_registered;
 
 int init_completed;
-
-/*
-esp_vfs_spiffs_conf_t conf_spiffs =
-	{
-	.base_path = BASE_PATH,
-	.partition_label = PARTITION_LABEL,
-	.max_files = 5,
-	.format_if_mount_failed = true
-	};
-*/
 
 static void initialize_nvs(void)
 	{
@@ -160,7 +151,8 @@ void app_main(void)
 
 	tsync = 0;
 	wifi_join(DEFAULT_SSID, DEFAULT_PASS, JOIN_TIMEOUT_MS);
-	rw_params(PARAM_READ, PARAM_CONSOLE, &console_state);
+	rw_console_state(PARAM_READ, &console_state);
+	//rw_params(PARAM_READ, PARAM_CONSOLE, &console_state);
     //tcp_log_task_handle = NULL;
     tcp_log_evt_queue = NULL;
 	tcp_log_init();
@@ -264,7 +256,7 @@ void app_main(void)
 #endif
 
 	ESP_ERROR_CHECK(esp_console_start_repl(repl));
-	ESP_LOGI(TAG, "console start / %lu", esp_get_free_heap_size());
+	ESP_LOGI(TAG, "console start / %lu", (unsigned long)esp_get_free_heap_size());
 #endif
 	//while(1)
 	//	vTaskDelay(pdMS_TO_TICKS(100));

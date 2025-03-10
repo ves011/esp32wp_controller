@@ -7,10 +7,9 @@
 
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/freertos.h"
-#include "freertos/queue.h"
-#include "freertos/semphr.h"
+//#include "freertos/task.h"
+//#include "freertos/queue.h"
+//#include "freertos/semphr.h"
 #include "esp_timer.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_vendor.h"
@@ -25,7 +24,7 @@
 #include "esp_lcd_ili9341.h"
 #include <time.h>
 #include <sys/time.h>
-#include "waterop.h"
+#include "project_specific.h"
 #include "common_defines.h"
 #include "external_defs.h"
 #include "lvgl.h"
@@ -33,6 +32,7 @@
 #include "pumpop.h"
 #include "rot_enc.h"
 #include "handle_ui_key.h"
+#include "waterop.h"
 #include "pump_screen.h"
 #include "water_screen_z.h"
 #include "water_screen.h"

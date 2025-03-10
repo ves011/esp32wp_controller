@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/freertos.h"
+
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
 #include "esp_timer.h"
@@ -24,6 +24,7 @@
 #include "esp_lcd_ili9341.h"
 #include <time.h>
 #include <sys/time.h>
+#include "project_specific.h"
 #include "common_defines.h"
 #include "external_defs.h"
 #include "common_defines.h"
