@@ -608,7 +608,7 @@ int do_pumpop(int argc, char **argv)
     	}
     if(strcmp(argv[0], "pump"))
     	return 0;
-    /*
+    
     if(strcmp(pumpop_args.op->sval[0], "start") == 0)
     	{
 		start_pump(0);
@@ -617,8 +617,8 @@ int do_pumpop(int argc, char **argv)
     	{
 		stop_pump(0);
     	}
-    	*/
-    if(strcmp(pumpop_args.op->sval[0], "state") == 0)
+    	
+    else if(strcmp(pumpop_args.op->sval[0], "state") == 0)
     	{
     	get_pump_state();
     	}
@@ -754,8 +754,6 @@ void pump_mon_task(void *pvParameters)
 	time_t running_time = 0, start_time = 0;
 	while(1)
 		{
-		//memset(min, 0, sizeof(min));
-		//memset(max, 0, sizeof(max));
 		int local_ps_mv;
 		if(get_pump_adc_values(&local_ps_mv) == ESP_OK)
 			{
@@ -769,7 +767,6 @@ void pump_mon_task(void *pvParameters)
 					pump_status = PUMP_OFFLINE;
 				int local_ps = pump_status;
 				rw_poperational(PARAM_WRITE, &local_ps);
-				//rw_params(PARAM_WRITE, PARAM_OPERATIONAL, &local_ps);
 				}
 			else
 				{
@@ -783,7 +780,6 @@ void pump_mon_task(void *pvParameters)
 							pump_status = PUMP_OFFLINE;
 							int local_ps = pump_status;
 							rw_poperational(PARAM_WRITE, &local_ps);
-							//rw_params(PARAM_WRITE, PARAM_OPERATIONAL, &local_ps);
 							}
 						else
 							{

@@ -23,7 +23,9 @@
 	#define CTRL_DEV_ID					1
 #endif
 
-#define DEV_NAME						"wpcont"
+#define COMM_PROTO	MQTT_PROTO
+
+#define DEV_NAME						"Pompa & Irigatie"
 
 #define ACTIVE_CONTROLLER				(WP_CONTROLLER)
 #define WIFI_STA_ON						1
@@ -34,6 +36,9 @@
 #define ADC_AD7811
 //#define ADC_ESP32
 #define ROT_ENCODER
+
+#define WIFI_AP_ON	0
+#define WIFI_STA_ON	1
 
 /*
 Message definitions for device monitor queue

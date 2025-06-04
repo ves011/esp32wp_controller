@@ -35,9 +35,9 @@
 #include "esp_ota_ops.h"
 #include "hal/adc_types.h"
 #include "lvgl.h"
+#include "dev_mon.h"
 #include "rot_enc.h"
 #include "gpios.h"
-//#include "adc_op.h"
 #include "ad7811.h"
 #include "pumpop.h"
 #include "waterop.h"
@@ -51,8 +51,6 @@
 #define CONFIG_CONSOLE_MAX_COMMAND_LINE_LENGTH	1024
 
 #include "wifi_credentials.h"
-
-QueueHandle_t dev_mon_queue = NULL;
 
 console_state_t console_state;
 int restart_in_progress;
@@ -151,12 +149,16 @@ void app_main(void)
 
 	tsync = 0;
 	wifi_join(DEFAULT_SSID, DEFAULT_PASS, JOIN_TIMEOUT_MS);
+	if(xTaskCreate(dev_mon_task, "dev mon task", 4096, NULL, 5, NULL) != pdPASS)
+		{
+		ESP_LOGE(TAG, "Cannot create dev_mon_task task");
+		esp_restart();
+		}
 	rw_console_state(PARAM_READ, &console_state);
 	//rw_params(PARAM_READ, PARAM_CONSOLE, &console_state);
     //tcp_log_task_handle = NULL;
     tcp_log_evt_queue = NULL;
-	tcp_log_init();
-	esp_log_set_vprintf(my_log_vprintf);
+	
 	restart_in_progress = 0;
 	controller_op_registered = 0;
 	msg.val = 2;
@@ -177,6 +179,8 @@ void app_main(void)
     xQueueSend(ui_cmd_q, &msg, 0);
 	if(mqtt_start() != ESP_OK)
 		esp_restart();
+	tcp_log_init();
+	esp_log_set_vprintf(my_log_vprintf);
 	//ESP_LOGI(TAG, "MQTT task / %lu", esp_get_free_heap_size());
 	msg.val = 4;
     xQueueSend(ui_cmd_q, &msg, 0);
