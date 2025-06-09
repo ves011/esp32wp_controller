@@ -19,10 +19,20 @@
 
 	#define PUMP_ON					(1)
 	#define PUMP_OFF				(0)
-	#define PUMP_FAULT				(4)
+
 	#define PUMP_ONLINE				(2)
 	#define PUMP_OFFLINE			(3)
+	#define PUMP_FAULT				(4)
+	#define PUMP_OVERRCURRENT		(5)
+	#define PUMP_DOESNT_START		(6)
+	#define PUMP_DOESNT_STOP		(7)
+	
+	#define MSG_QMETER_SEC			(1)
+	#define MSG_PUMP_MON			(2)
+	#define MSG_SET_ONLINE			(3)
+	#define MSG_SET_OFFLINE			(4)
 
+	#define MON_INTERVAL			200000	//200 msec timer tick
 #define QMETER_FREQ_RES				1000000	// 1msec resolution
 #define QMETER_MEAS_TIME			1000000	// 1 sec
 
@@ -47,8 +57,7 @@
 #define DEFAULT_PRES_MIN_LIMIT		100
 #define DEFAULT_PRES_MAX_LIMIT		340
 #define DEFAULT_PUMP_CURRENT_LIMIT	5000
-#define DEFAULT_OVERP_TIME_LIMIT	10
-#define DEFAULT_VOID_RUN_COUNT		20
+
 
 #define SAVE_TWATER_TIME			32 // = hour *60 + min --> 00:32
 
@@ -59,6 +68,7 @@ typedef struct
 	} psensor_offset_t;
 */
 
+extern QueueHandle_t pump_cmd_queue;
 typedef struct
     {
     uint32_t mv;
@@ -71,10 +81,7 @@ typedef struct
 typedef struct
 	{
 	uint32_t min_val;			/*!< min pressure limit										*/
-	uint32_t max_val;			/*!< max pressure limit										*/
 	uint32_t faultc;			/*!< max acceptable current when pump running (mA)			*/
-	uint32_t overp_lim;			/*!< how long the pressure needs to be above max_val before the pump to be stopped (sec) */
-	uint32_t void_run_count;	/*!< how many 10secs on/off cycles allowed before turning the pump offline */
 	} pump_limits_t;
 
 
@@ -112,7 +119,7 @@ int set_pump_0_offset(void);
 int pump_operational(int po);
 void pump_mon_task(void *pvParameters);
 void process_adc_current(minmax_t *min, minmax_t *max);
-void get_pump_values(int *p_state, int *p_status, int *p_current, int *p_current_lim, int *p_min_pres, int *p_max_pres, int *p_press, int *p_debit);
+void get_pump_values(int *p_state, int *p_status, int *p_current, int *p_current_lim, int *p_min_pres, int *p_press, float *p_debit);
 int get_pump_state_value();
 
 #endif /* PUMP_OP_PUMPOP_H_ */

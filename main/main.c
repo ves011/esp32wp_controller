@@ -46,7 +46,7 @@
 #include "external_defs.h"
 
 #define TAG "ctrl_dev"
-#define PROMPT_STR "CTRLDEV"
+
 #define CONFIG_STORE_HISTORY 1
 #define CONFIG_CONSOLE_MAX_COMMAND_LINE_LENGTH	1024
 

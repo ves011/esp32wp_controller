@@ -125,7 +125,8 @@ int do_main_screen(int active_screen)
 	msg_t msg;
 	int dvstate[DVCOUNT] = {0};
 	int i, ret = 0, nbuttons = 2, lt = 0;
-	int p_state, p_status, p_current, p_current_lim, p_min_pres, p_max_pres, p_press, p_debit;
+	int p_state, p_status, p_current, p_current_lim, p_min_pres, p_press;
+	float p_debit;
 	k_act = 1;
 	draw_main_screen(active_screen);
 	xQueueReset(ui_cmd_q);
@@ -173,7 +174,7 @@ int do_main_screen(int active_screen)
 
 		else if(i == PUMP_VAL_CHANGE)
 			{
-			get_pump_values(&p_state, &p_status, &p_current, &p_current_lim, &p_min_pres, &p_max_pres, &p_press, &p_debit);
+			get_pump_values(&p_state, &p_status, &p_current, &p_current_lim, &p_min_pres, &p_press, &p_debit);
 			if(p_status == PUMP_FAULT)
 				lv_led_set_color(ledp, lv_color_hex(0xff4040));
 			else

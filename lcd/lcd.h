@@ -39,7 +39,7 @@
 #define PUMP_SCREEN		2
 #define WATER_SCREEN	3
 
-#define INACTIVITY_TIME	30000000		//msec of inactivity
+#define INACTIVITY_TIME	60000000		//msec of inactivity
 
 #define LEDON		lv_color_hex(0xf0f040)
 #define LEDOFF		lv_color_hex(0x606060)

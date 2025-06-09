@@ -37,6 +37,7 @@
 
 #define WATER_OFF				0
 #define WATER_ON				1
+#define WATER_MON_INTERVAL		30000000			//30 sec mon interval
 
 #define STDEV_MAX				10
 #define DVSTATE_OK				1
@@ -46,7 +47,7 @@
 #define DVCLOSE					0
 #define DVOP_INPROGRESS			2
 #define DVOP_STEADY				3
-#define MINPRES					100
+#define MINPRES					150
 
 /** Name of the file storing dv program */
 #define PROGRAM_FILE		"dv_program.txt"
@@ -122,7 +123,7 @@ typedef struct
 	struct tm eff_stop;
 	int cs;
 	int fault;
-	int qwater;
+	float qwater;
 	struct tm last_start;
 	struct tm last_stop;
 	int last_cs;

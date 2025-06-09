@@ -41,7 +41,7 @@ static lv_obj_t * watch;
 
 static int k_act = 0;
 static lv_obj_t *pump_scr;
-static lv_obj_t *led_online, *led_run, *l_press_min, *cpress, *l_pressm;
+static lv_obj_t *led_online, *led_run, *l_press_min, *cpress;//, *l_pressm;
 static lv_obj_t *ccurrent, *l_current_max, *cdebit, *l_pump_state;
 
 
@@ -123,13 +123,13 @@ static void draw_pump_screen()
     lv_obj_set_pos(cpress, 150, 110);
     lv_obj_set_size(cpress, 50, 20);
     lv_label_set_text(cpress, "");
-
+/*
     l_pressm = lv_label_create(pump_scr);
     lv_obj_add_style(l_pressm, &cell_style, 0);
     lv_obj_set_pos(l_pressm, 205, 110);
     lv_obj_set_size(l_pressm, 50, 20);
     lv_label_set_text(l_pressm, "");
-
+*/
     lv_obj_t* l_pum = lv_label_create(pump_scr);
     lv_obj_add_style(l_pum, &cell_style, 0);
     lv_obj_set_pos(l_pum, 260, 110);
@@ -225,9 +225,10 @@ int do_pump_screen()
 	msg_t msg;
 	char buf[10];
 	int saved_pump_state = -1, saved_pump_status = -1, saved_pump_current = -5, saved_pump_pressure_kpa = -1;
-	int saved_current_lim = -1, saved_min_pres = -1, saved_max_pres = -1, saved_debit = -1;;
-	int p_state, p_status, p_current, p_current_lim, p_min_pres, p_max_pres, p_press, p_debit;
-	int i, nbuttons = 2, ret = ESP_OK;
+	int saved_current_lim = -1, saved_min_pres = -1, saved_debit = -1;;
+	int p_state, p_status, p_current, p_current_lim, p_min_pres, p_press;
+	float p_debit;
+	int i, nbuttons = 2;
 	saved_pump_state = saved_pump_status = saved_pump_pressure_kpa = -1;
 	saved_pump_current = -5;
 	draw_pump_screen();
@@ -250,10 +251,16 @@ int do_pump_screen()
 			if(btns[0].state == 1)
 				{
 				if(p_status == PUMP_ONLINE)
-					ret = pump_operational(PUMP_OFFLINE);
+					{
+					msg.source = MSG_SET_OFFLINE;
+					xQueueSend(pump_cmd_queue, &msg, portMAX_DELAY);
+					}
 				else if(p_status == PUMP_OFFLINE)
-					ret = pump_operational(PUMP_ONLINE);
-
+					{
+					msg.source = MSG_SET_ONLINE;
+					xQueueSend(pump_cmd_queue, &msg, portMAX_DELAY);
+					}
+				/*
 				if(ret == ESP_OK)
 					{
 					lv_label_set_text(l_pump_state, "OK");
@@ -264,11 +271,12 @@ int do_pump_screen()
 					lv_label_set_text(l_pump_state, "Eroare pompa");
 					lv_obj_set_style_text_color(l_pump_state, lv_color_hex(0xff4040), 0);
 					}
+				*/
 				}
 			}
 		if(i == PUMP_VAL_CHANGE)
 			{
-			get_pump_values(&p_state, &p_status, &p_current, &p_current_lim, &p_min_pres, &p_max_pres, &p_press, &p_debit);
+			get_pump_values(&p_state, &p_status, &p_current, &p_current_lim, &p_min_pres, &p_press, &p_debit);
 			lv_label_set_text(l_pump_state, "OK");
 			lv_obj_set_style_text_color(l_pump_state, lv_color_hex(0x00ff00), 0);
 			if(p_state != saved_pump_state)
@@ -334,11 +342,13 @@ int do_pump_screen()
 				saved_min_pres = p_min_pres;
 				lv_label_set_text_fmt(l_press_min, "%3d", p_min_pres);
 				}
+			/*
 			if(p_max_pres != saved_max_pres)
 				{
 				saved_max_pres = p_max_pres;
 				lv_label_set_text_fmt(l_pressm, "%3d", p_max_pres);
 				}
+			*/
 			if(p_press != saved_pump_pressure_kpa)
 				{
 				saved_pump_pressure_kpa = p_press;
@@ -347,7 +357,8 @@ int do_pump_screen()
 			if(p_debit != saved_debit)
 				{
 				saved_debit = p_debit;
-				lv_label_set_text_fmt(cdebit, "%3d", p_debit);
+				sprintf(buf, "%5.1f", p_debit);
+				lv_label_set_text(cdebit, buf);
 				}
 			}
 		if(i == PUMP_OP_ERROR)

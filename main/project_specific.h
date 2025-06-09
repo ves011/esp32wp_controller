@@ -12,7 +12,7 @@
 #ifndef MAIN_PROJECT_SPECIFIC_H_
 #define MAIN_PROJECT_SPECIFIC_H_
 
-#define TEST_BUILD 1
+#define TEST_BUILD 0
 #if(TEST_BUILD == 1)
 	#define WITH_CONSOLE
 	#define TEST1
@@ -26,9 +26,12 @@
 #define COMM_PROTO	MQTT_PROTO
 
 #define DEV_NAME						"Pompa & Irigatie"
+#define PROMPT_STR "WP_ctrl"
 
 #define ACTIVE_CONTROLLER				(WP_CONTROLLER)
 #define WIFI_STA_ON						1
+#define MQTT_PUBLISH					(1)
+//#define OTA_SUPPORT
 
 //#define WP_HW_V1
 #define WP_HW_V2
